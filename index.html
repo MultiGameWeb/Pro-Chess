@@ -771,6 +771,12 @@ function startTimer(){
   state.timerId=setInterval(()=>{
     if(state.gameOver) return;
 
+    // The AI's calculation time is separate from the 15s human turn clock.
+    // This prevents a strong AI search from causing an artificial timeout.
+    if(state.mode==="ai" && state.turn==="b" && state.aiThinking){
+      updatePlayers();
+      return;
+    }
     const elapsed = (performance.now() - state.turnStartTimestamp) / 1000;
     let left = Math.ceil(15 - elapsed);
     if(left < 0) left = 0;
@@ -919,166 +925,262 @@ function showSettings(){
 /* ==========================================================
    ROBUST AI ENGINE WITH GUARANTEED FALLBACK & ITERATIVE DEEPENING
    ========================================================== */
-function aiMove(){
-  if(state.gameOver || state.mode!=="ai" || state.turn!=="b") return;
-  
-  const currentAiTurnId = ++state.aiTurnId;
-  state.aiThinking=true;
-  document.getElementById("boardHint").textContent="AI is thinking…";
+/* ==========================================================
+   ROYAL GAMBIT AI ENGINE v2
+   Hard / Grandmaster: iterative deepening + alpha-beta +
+   quiescence + transposition table + positional evaluation.
+   ========================================================== */
+const AI_CFG={
+  Easy:{time:350,depth:1,q:1},
+  Medium:{time:1400,depth:3,q:2},
+  Hard:{time:9500,depth:5,q:3},
+  Grandmaster:{time:13500,depth:7,q:4}
+};
+const TT_MAX=60000;
+const aiTT=new Map();
+const aiKiller=Array.from({length:32},()=>[]);
+const aiHistoryHeur={};
 
-  const moves = legalMovesFor("b");
-  if(!moves.length){ state.aiThinking=false; return; }
+const PST={
+  p:[
+    0,0,0,0,0,0,0,0,
+    8,10,10,-10,-10,10,10,8,
+    5,5,6,12,12,6,5,5,
+    2,2,4,18,18,4,2,2,
+    3,3,8,20,20,8,3,3,
+    6,8,10,8,8,10,8,6,
+    70,70,70,70,70,70,70,70,
+    0,0,0,0,0,0,0,0
+  ],
+  n:[-18,-14,-10,-8,-8,-10,-14,-18,-12,-4,2,4,4,2,-4,-12,-10,2,10,12,12,10,2,-10,-8,4,12,16,16,12,4,-8,-8,4,12,16,16,12,4,-8,-10,2,10,12,12,10,2,-10,-12,-4,2,4,4,2,-4,-12,-18,-14,-10,-8,-8,-10,-14,-18],
+  b:[-12,-8,-8,-8,-8,-8,-8,-12,-8,2,4,6,6,4,2,-8,-8,4,8,10,10,8,4,-8,-8,6,10,12,12,10,6,-8,-8,4,10,12,12,10,4,-8,-8,8,8,10,10,8,8,-8,-8,6,6,6,6,6,6,-8,-12,-8,-8,-8,-8,-8,-8,-12],
+  r:[2,4,6,8,8,6,4,2,5,8,8,10,10,8,8,5,0,2,3,5,5,3,2,0,0,0,1,3,3,1,0,0,0,0,1,3,3,1,0,0,4,4,4,5,5,4,4,4,4,4,4,6,6,4,4,4,2,4,6,8,8,6,4,2],
+  q:[-10,-6,-4,-2,-2,-4,-6,-10,-6,0,4,4,4,4,0,-6,-4,4,6,8,8,6,4,-4,-2,4,8,10,10,8,4,-2,-2,4,8,10,10,8,4,-2,-4,4,6,8,8,6,4,-4,-6,0,4,4,4,4,0,-6,-10,-6,-4,-2,-2,-4,-6,-10],
+  k:[-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-20,-30,-30,-40,-40,-30,-30,-20,-10,-20,-20,-20,-20,-20,-20,-10,25,35,15,-5,-5,15,35,25,30,40,20,0,0,20,40,30]
+};
+const VAL={p:100,n:320,b:330,r:500,q:900,k:20000};
 
-  // 6. GUARANTEED AI FALLBACK
-  let chosenMove = moves[Math.floor(Math.random() * moves.length)];
-  const diff = state.difficulty;
-
-  const budgetMap = { Easy: 300, Medium: 900, Hard: 3500, Grandmaster: 6500 };
-  const timeLimit = budgetMap[diff] || 1500;
-  const startTime = performance.now();
-
-  // 9. SAFE AI EMERGENCY TIMEOUT SAFETY
-  if(state.aiTimeoutHandle) clearTimeout(state.aiTimeoutHandle);
-  state.aiTimeoutHandle = setTimeout(()=>{
-    if(state.aiThinking && state.aiTurnId === currentAiTurnId){
-      state.aiThinking = false;
-      executeAIMoveSafely(chosenMove);
-    }
-  }, timeLimit + 1000);
-
-  setTimeout(()=>{
-    if(state.aiTurnId !== currentAiTurnId) return; // Race condition check
-    try {
-      if(diff === "Easy"){
-        if(Math.random() < 0.6 && moves.length > 1){
-          chosenMove = moves[Math.floor(Math.random() * moves.length)];
-        } else {
-          chosenMove = getBestMoveIterative(moves, 1, startTime, timeLimit, currentAiTurnId);
-        }
-      } else if(diff === "Medium"){
-        chosenMove = getBestMoveIterative(moves, 2, startTime, timeLimit, currentAiTurnId);
-      } else if(diff === "Hard"){
-        chosenMove = getBestMoveIterative(moves, 3, startTime, timeLimit, currentAiTurnId);
-      } else {
-        chosenMove = getBestMoveIterative(moves, 4, startTime, timeLimit, currentAiTurnId);
-      }
-    } catch(e) {
-      // Retains guaranteed fallback move
-    }
-
-    if(state.aiTurnId === currentAiTurnId){
-      if(state.aiTimeoutHandle){ clearTimeout(state.aiTimeoutHandle); state.aiTimeoutHandle=null; }
-      state.aiThinking = false;
-      document.getElementById("boardHint").textContent = "Tap a piece, then tap destination.";
-      executeAIMoveSafely(chosenMove);
-    }
-  }, 20);
+function boardKey(b,turn='b'){
+  return b.map(r=>r.join('')).join('/')+'|'+turn;
 }
-
-function executeAIMoveSafely(move){
-  if(state.gameOver || state.turn !== "b") return;
-  if(typeOf(state.board[move.from[0]][move.from[1]])==="p" && (move.to[0]===0 || move.to[0]===7)){
-    performMove(move, "q");
-  } else {
-    performMove(move);
+function moveKey(m){return `${m.from[0]}${m.from[1]}-${m.to[0]}${m.to[1]}`}
+function sideIndex(p){return colorOf(p)==='b'?7-rankIndex(p):-1}
+function rankIndex(p){return 0}
+function pstValue(t,r,c,col){
+  let rr=col==='w'?7-r:r;
+  return PST[t]?PST[t][rr*8+c]:0;
+}
+function isCaptureMove(m){return !!(m.captured||m.enPassant||m.capture)}
+function moveScore(m,b,ply,ttMove){
+  let s=0;
+  const mk=moveKey(m);
+  if(ttMove===mk)s+=1000000;
+  if(isCaptureMove(m)){
+    const victim=m.captured||'';
+    const attacker=b[m.from[0]][m.from[1]]||'.';
+    s+=50000+(VAL[typeOf(victim)]||100)-(VAL[typeOf(attacker)]||0)/10;
   }
+  if(typeOf(b[m.from[0]][m.from[1]])==='p' && (m.to[0]===0||m.to[0]===7))s+=90000;
+  const ks=aiKiller[ply]||[];
+  if(ks.includes(mk))s+=30000;
+  s+=(aiHistoryHeur[mk]||0);
+  return s;
+}
+function orderedMoves(b,moves,ply,ttMove){
+  return moves.slice().sort((a,z)=>moveScore(z,b,ply,ttMove)-moveScore(a,b,ply,ttMove));
+}
+function clearAIHash(){
+  if(aiTT.size>TT_MAX)aiTT.clear();
 }
 
-function getBestMoveIterative(moves, targetDepth, startTime, timeLimit, turnId){
-  let bestMove = moves[0];
-  let globalBestScore = -Infinity; // Higher is better for Black
+function evalPosition(b){
+  let score=0, whiteB=0, blackB=0, whitePawns=[], blackPawns=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const p=b[r][c]; if(p==='.')continue;
+    const t=typeOf(p), col=colorOf(p);
+    let v=VAL[t]||0;
+    v+=pstValue(t,r,c,col);
+    if(t==='p'){
+      if(col==='w')whitePawns.push([r,c]); else blackPawns.push([r,c]);
+      const advance=col==='w'?6-r:r-1;
+      v+=Math.max(0,advance)*5;
+    }
+    if(t==='b'){if(col==='w')whiteB++; else blackB++;}
+    score+=(col==='b'?v:-v);
+  }
 
-  // Move ordering: captures and checks first
-  moves.sort((a, b) => (b.capture ? 1 : 0) - (a.capture ? 1 : 0));
-
-  for(let currentDepth = 1; currentDepth <= targetDepth; currentDepth++){
-    if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
-
-    let bestScoreForDepth = -Infinity;
-    let bestMoveForDepth = bestMove;
-
-    for(const m of moves){
-      if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
-      const nb = applyMove(state.board, m);
-      
-      let score = minimaxAlphaBeta(nb, currentDepth - 1, -Infinity, Infinity, "w", startTime, timeLimit, turnId);
-      score += (Math.random() * 0.03); // tie-breaker noise
-
-      if(score > bestScoreForDepth){
-        bestScoreForDepth = score;
-        bestMoveForDepth = m;
+  // Pawn structure / passed pawns / doubled & isolated pawns.
+  const pawnStructure=(pawns,col)=>{
+    let x=0,files=Array(8).fill(0);
+    for(const [r,c] of pawns)files[c]++;
+    for(let c=0;c<8;c++){
+      if(files[c]>1)x-=(files[c]-1)*12;
+      if(files[c] && (c===0||files[c-1]===0) && (c===7||files[c+1]===0))x-=10;
+    }
+    for(const [r,c] of pawns){
+      let passed=true;
+      for(const [or,oc] of (col==='w'?blackPawns:whitePawns)){
+        if(Math.abs(oc-c)<=1 && (col==='w'?or<r:or>r)){passed=false;break;}
       }
+      if(passed)x+=18+(col==='w'?(6-r)*8:(r-1)*8);
     }
-    // 11. ITERATIVE DEEPENING: Only promote best move if depth completed fully
-    if(performance.now() - startTime <= timeLimit && state.aiTurnId === turnId){
-      globalBestScore = bestScoreForDepth;
-      bestMove = bestMoveForDepth;
+    return x;
+  };
+  score+=pawnStructure(blackPawns,'b')-pawnStructure(whitePawns,'w');
+  if(blackB>=2)score+=28;
+  if(whiteB>=2)score-=28;
+
+  // Center control and piece mobility (lightweight pseudo mobility).
+  const center=[[3,3],[3,4],[4,3],[4,4]];
+  for(const [r,c] of center){const p=b[r][c];if(p!=='.')score+=colorOf(p)==='b'?22:-22;}
+  
+  // King safety: reward pawn shield and penalize exposed king.
+  const kingSafety=(col)=>{
+    let kr=-1,kc=-1;
+    const K=col==='b'?'k':'K';
+    for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]===K){kr=r;kc=c;break;}
+    if(kr<0)return -10000;
+    let v=0;
+    const dir=col==='w'?-1:1;
+    for(const dc of [-1,0,1]){
+      const rr=kr+dir,cc=kc+dc;
+      if(rr>=0&&rr<8&&cc>=0&&cc<8&&b[rr][cc]===(col==='w'?'P':'p'))v+=10;
     }
+    return v;
+  };
+  score+=kingSafety('b')-kingSafety('w');
+  return score;
+}
+
+function evaluateAdvanced(b){return evalPosition(b)}
+
+function quiescence(b,alpha,beta,turn,startTime,timeLimit,turnId,qDepth,ply){
+  if(performance.now()-startTime>=timeLimit || state.aiTurnId!==turnId) return evalPosition(b);
+  const stand=evalPosition(b);
+  if(turn==='b'){
+    if(stand>=beta)return stand;
+    if(stand>alpha)alpha=stand;
+  }else{
+    if(stand<=alpha)return stand;
+    if(stand<beta)beta=stand;
+  }
+  if(qDepth<=0)return stand;
+  const old=state.board; state.board=b;
+  let moves=legalMovesFor(turn); state.board=old;
+  moves=moves.filter(m=>isCaptureMove(m)||(typeOf(b[m.from[0]][m.from[1]])==='p'&&(m.to[0]===0||m.to[0]===7)));
+  moves=orderedMoves(b,moves,ply,null);
+  if(turn==='b'){
+    let best=stand;
+    for(const m of moves){
+      const nb=applyMove(b,m);
+      const v=quiescence(nb,alpha,beta,'w',startTime,timeLimit,turnId,qDepth-1,ply+1);
+      best=Math.max(best,v); alpha=Math.max(alpha,v); if(alpha>=beta)break;
+    }
+    return best;
+  }
+  let best=stand;
+  for(const m of moves){
+    const nb=applyMove(b,m);
+    const v=quiescence(nb,alpha,beta,'b',startTime,timeLimit,turnId,qDepth-1,ply+1);
+    best=Math.min(best,v); beta=Math.min(beta,v); if(alpha>=beta)break;
+  }
+  return best;
+}
+
+function minimaxAlphaBeta(b,depth,alpha,beta,turn,startTime,timeLimit,turnId,qDepth=3,ply=0){
+  if(performance.now()-startTime>=timeLimit || state.aiTurnId!==turnId) return evalPosition(b);
+  const key=boardKey(b,turn);
+  const hit=aiTT.get(key);
+  if(hit && hit.depth>=depth){
+    if(hit.flag==='EXACT')return hit.score;
+    if(hit.flag==='LOW')alpha=Math.max(alpha,hit.score);
+    if(hit.flag==='HIGH')beta=Math.min(beta,hit.score);
+    if(alpha>=beta)return hit.score;
+  }
+  const alpha0=alpha,beta0=beta;
+  if(depth<=0)return quiescence(b,alpha,beta,turn,startTime,timeLimit,turnId,qDepth,ply);
+  const old=state.board; state.board=b;
+  let moves=legalMovesFor(turn); state.board=old;
+  if(!moves.length)return inCheck(b,turn)?(turn==='b'?-999999+ply:999999-ply):0;
+  const ttMove=hit?hit.best:null;
+  moves=orderedMoves(b,moves,ply,ttMove);
+  let bestMove=null,best;
+  if(turn==='b'){
+    best=-Infinity;
+    for(const m of moves){
+      if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId)break;
+      const v=minimaxAlphaBeta(applyMove(b,m),depth-1,alpha,beta,'w',startTime,timeLimit,turnId,qDepth,ply+1);
+      if(v>best){best=v;bestMove=m}
+      alpha=Math.max(alpha,v);
+      if(beta<=alpha){const mk=moveKey(m);aiKiller[ply]=[mk,...(aiKiller[ply]||[]).filter(x=>x!==mk)].slice(0,2);aiHistoryHeur[mk]=(aiHistoryHeur[mk]||0)+depth*depth;break;}
+    }
+  }else{
+    best=Infinity;
+    for(const m of moves){
+      if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId)break;
+      const v=minimaxAlphaBeta(applyMove(b,m),depth-1,alpha,beta,'b',startTime,timeLimit,turnId,qDepth,ply+1);
+      if(v<best){best=v;bestMove=m}
+      beta=Math.min(beta,v);
+      if(beta<=alpha){const mk=moveKey(m);aiKiller[ply]=[mk,...(aiKiller[ply]||[]).filter(x=>x!==mk)].slice(0,2);aiHistoryHeur[mk]=(aiHistoryHeur[mk]||0)+depth*depth;break;}
+    }
+  }
+  if(best===Infinity||best===-Infinity)best=evalPosition(b);
+  let flag='EXACT'; if(best<=alpha0)flag='HIGH'; else if(best>=beta0)flag='LOW';
+  aiTT.set(key,{depth,score:best,flag,best:bestMove?moveKey(bestMove):null});
+  return best;
+}
+
+function getBestMoveIterative(moves,targetDepth,startTime,timeLimit,turnId){
+  let bestMove=moves[0];
+  for(let depth=1;depth<=targetDepth;depth++){
+    if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId)break;
+    let bestForDepth=bestMove,bestScore=-Infinity,completed=true;
+    const rootMoves=orderedMoves(state.board,moves,0,aiTT.get(boardKey(state.board,'b'))?.best||null);
+    for(const m of rootMoves){
+      if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId){completed=false;break;}
+      const score=minimaxAlphaBeta(applyMove(state.board,m),depth-1,-Infinity,Infinity,'w',startTime,timeLimit,turnId,AI_CFG[state.difficulty]?.q||3,1);
+      if(score>bestScore){bestScore=score;bestForDepth=m}
+    }
+    if(completed){bestMove=bestForDepth;}
   }
   return bestMove;
 }
 
-function minimaxAlphaBeta(b, depth, alpha, beta, turn, startTime, timeLimit, turnId){
-  if(depth === 0 || (performance.now() - startTime > timeLimit) || state.aiTurnId !== turnId) {
-    return evaluateAdvanced(b);
-  }
-
-  const oldBoard = state.board;
-  state.board = b;
-  const moves = legalMovesFor(turn);
-  state.board = oldBoard;
-
-  if(!moves.length){
-    return inCheck(b, turn) ? (turn === "b" ? -99999 : 99999) : 0;
-  }
-
-  moves.sort((a, b) => (b.capture ? 1 : 0) - (a.capture ? 1 : 0));
-
-  const isMaximizing = (turn === "b");
-  if(isMaximizing){
-    let maxEval = -Infinity;
-    for(const m of moves){
-      if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
-      const nb = applyMove(b, m);
-      const evalScore = minimaxAlphaBeta(nb, depth - 1, alpha, beta, "w", startTime, timeLimit, turnId);
-      maxEval = Math.max(maxEval, evalScore);
-      alpha = Math.max(alpha, evalScore);
-      if(beta <= alpha) break;
+function aiMove(){
+  if(state.gameOver||state.mode!=='ai'||state.turn!=='b')return;
+  const currentAiTurnId=++state.aiTurnId;
+  state.aiThinking=true;
+  document.getElementById('boardHint').textContent=(state.difficulty||'AI')+' is calculating…';
+  const moves=legalMovesFor('b');
+  if(!moves.length){state.aiThinking=false;return;}
+  const cfg=AI_CFG[state.difficulty]||AI_CFG.Medium;
+  const startTime=performance.now();
+  clearAIHash();
+  let chosenMove=moves[0];
+  if(state.aiTimeoutHandle)clearTimeout(state.aiTimeoutHandle);
+  state.aiTimeoutHandle=setTimeout(()=>{
+    if(state.aiThinking&&state.aiTurnId===currentAiTurnId){
+      state.aiThinking=false;
+      document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
+      executeAIMoveSafely(chosenMove);
     }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for(const m of moves){
-      if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
-      const nb = applyMove(b, m);
-      const evalScore = minimaxAlphaBeta(nb, depth - 1, alpha, beta, "b", startTime, timeLimit, turnId);
-      minEval = Math.min(minEval, evalScore);
-      beta = Math.min(beta, evalScore);
-      if(beta <= alpha) break;
+  },cfg.time+1200);
+  setTimeout(()=>{
+    if(state.aiTurnId!==currentAiTurnId)return;
+    try{chosenMove=getBestMoveIterative(moves,cfg.depth,startTime,cfg.time,currentAiTurnId)}catch(e){}
+    if(state.aiTurnId===currentAiTurnId){
+      if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+      state.aiThinking=false;
+      document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
+      executeAIMoveSafely(chosenMove);
     }
-    return minEval;
-  }
+  },25);
 }
 
-/* 10. BLACK-POSITIVE EVALUATION CONVENTION */
-function evaluateAdvanced(b){
-  const val={p:100,n:320,b:330,r:500,q:900,k:20000};
-  let score=0;
-  for(let r=0;r<8;r++){
-    for(let c=0;c<8;c++){
-      const p=b[r][c];
-      if(p!=="."){
-        const t=typeOf(p);
-        const col=colorOf(p);
-        let base=val[t]||0;
-        if(t==="p"||t==="n"||t==="b"){
-          if(r>=2&&r<=5&&c>=2&&c<=5) base+=12;
-        }
-        score += (col==="b" ? base : -base);
-      }
-    }
-  }
-  return score;
+function executeAIMoveSafely(move){
+  if(state.gameOver||state.turn!=='b')return;
+  if(typeOf(state.board[move.from[0]][move.from[1]])==='p'&&(move.to[0]===0||move.to[0]===7))performMove(move,'q');
+  else performMove(move);
 }
 
 let audioCtx=null;
