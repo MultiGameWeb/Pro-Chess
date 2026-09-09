@@ -114,8 +114,9 @@ button{font:inherit;color:inherit;border:0}
 .coords{position:absolute;font-size:7px;font-weight:800;opacity:.5;z-index:3}.coord-r{left:3px;top:2px}.coord-f{right:3px;bottom:2px}
 .board-hint{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);padding:5px 10px;background:rgba(9,10,13,.85);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#d7d3ca;font-size:10px;backdrop-filter:blur(8px);white-space:nowrap;z-index:10}
 
-.game-controls{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.control{min-height:42px;border-radius:12px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);font-weight:700;font-size:11px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all .15s ease}
+/* Rebalanced 4-button control layout */
+.game-controls{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.control{min-height:44px;border-radius:12px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all .15s ease}
 .control:hover{background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));border-color:rgba(215,173,98,.4);transform:translateY(-1px)}
 .control:active{transform:translateY(1px);box-shadow:0 2px 4px rgba(0,0,0,0.2)}
 .control.gold{background:linear-gradient(145deg,rgba(215,173,98,.25),rgba(215,173,98,.1));border-color:rgba(215,173,98,.5)}
@@ -155,7 +156,7 @@ button{font:inherit;color:inherit;border:0}
       <div class="hero-copy">
         <div class="eyebrow">CINEMATIC CHESS EXPERIENCE</div>
         <h2>Play chess like a premium game.</h2>
-        <p>A precision-patched chess engine featuring exact zero-crossing timers, race-condition protected AI iterative deepening, and correct black-positive evaluation.</p>
+        <p>A precision-patched chess engine featuring exact zero-crossing timestamp timers, race-condition protected AI iterative deepening, and correct black-positive evaluation.</p>
         <div class="home-actions">
           <button class="primary" id="newGameBtn">♟ New Game</button>
           <button class="secondary" id="continueBtn" style="display:none">▶ Continue</button>
@@ -212,7 +213,6 @@ button{font:inherit;color:inherit;border:0}
       <button class="control gold" id="hintBtn">💡 Hint</button>
       <button class="control" id="rotateBtn">⟳ View</button>
       <button class="control" id="soundBtn">🔊 Sound</button>
-      <button class="control" id="pauseBtn">Ⅱ Pause</button>
     </div>
   </section>
 
@@ -236,10 +236,11 @@ const state={
   mode:"ai",difficulty:"Medium",
   seconds:{w:15,b:15},
   timeouts:{w:0,b:0},
-  timerRunning:false, timerId:null, sound:true,volume:.5,
-  orientation:0,theme:"classic",viewMode:"3d",
-  history:[],moveLog:[],gameOver:false,stats:loadStats(),pendingPromotion:null,
-  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null
+  timerId:null, turnStartTimestamp:null,
+  sound:true, volume:.5,
+  orientation:0, theme:"classic", viewMode:"3d",
+  history:[], moveLog:[], gameOver:false, stats:loadStats(), pendingPromotion:null,
+  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null, aiStartHandle:null
 };
 
 function loadStats(){
@@ -457,8 +458,8 @@ function onSquareTap(r,c){
 function maybePromotion(move){
   const p=state.board[move.from[0]][move.from[1]];
   if(typeOf(p)==="p"&&(move.to[0]===0||move.to[0]===7)){
-    state.pendingPromotion=move; 
-    openPromotion(); 
+    state.pendingPromotion=move;
+    openPromotion();
     return true;
   }
   return false;
@@ -483,17 +484,18 @@ function openPromotion(){
 }
 
 function performMove(move,promotion){
-  if(maybePromotion(move)&&!promotion)return;
+  // Only open the promotion picker when no promotion piece has been chosen yet.
+  if(!promotion && maybePromotion(move)) return;
   
-  // Invalidate any active AI search task
   state.aiTurnId++;
   if(state.aiTimeoutHandle) { clearTimeout(state.aiTimeoutHandle); state.aiTimeoutHandle=null; }
+  if(state.aiStartHandle) { clearTimeout(state.aiStartHandle); state.aiStartHandle=null; }
 
   const before=cloneBoard(state.board);
   const p=state.board[move.from[0]][move.from[1]];
   state.history.push({
     board:before,turn:state.turn,p,last:state.last,moveLog:state.moveLog.slice(),
-    from:move.from,to:move.to,captured:move.captured,double:move.double,seconds:{...state.seconds}
+    from:move.from,to:move.to,captured:move.captured,double:move.double,seconds:{...state.seconds},timeouts:{...state.timeouts}
   });
   
   state.board=applyMove(state.board,move,promotion);
@@ -505,14 +507,15 @@ function performMove(move,promotion){
   state.turn=state.turn==="w"?"b":"w";
   state.pendingPromotion=null;
   
-  // Fresh 15 seconds for incoming turn
+  // Reset turn clock exactly to 15 seconds and refresh timestamp anchor
   state.seconds[state.turn]=15;
+  state.turnStartTimestamp = performance.now();
   
   playSound(move.captured?"capture":"move");
   saveGame();renderBoard();checkGameEnd();
 
   if(!state.gameOver && state.mode==="ai" && state.turn==="b"){
-    setTimeout(aiMove, 100);
+    state.aiStartHandle = setTimeout(aiMove, 120);
   }
 }
 
@@ -526,14 +529,17 @@ function undo(){
   if(!state.history.length||state.gameOver||state.aiThinking)return;
   state.aiTurnId++;
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+  if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
   
   const n=state.mode==="ai"?Math.min(2,state.history.length):1;
   for(let i=0;i<n;i++){
     const h=state.history.pop();
     state.board=h.board;state.turn=h.turn;state.last=h.last||null;state.moveLog=h.moveLog||[];
     if(h.seconds) state.seconds={...h.seconds};
+    if(h.timeouts) state.timeouts={...h.timeouts};
   }
   state.selected=null;state.legal=[];
+  state.turnStartTimestamp = performance.now();
   saveGame();renderBoard();updatePlayers();
 }
 
@@ -558,13 +564,61 @@ function isInsufficient(){
   return false;
 }
 
-function isThreefoldRepetition(){
-  if(state.history.length<8)return false;
-  const currentBoardStr=JSON.stringify(state.board);
-  let count=0;
-  for(const h of state.history){
-    if(JSON.stringify(h.board)===currentBoardStr) count++;
+function castlingRightsFromHistory(untilIndex){
+  let rights={K:true,Q:true,k:true,q:true};
+  const end = untilIndex==null ? state.history.length : untilIndex;
+  for(let i=0;i<end;i++){
+    const h=state.history[i];
+    const p=h.p;
+    if(!p) continue;
+    const from=h.from, to=h.to;
+    if(p==="K"){rights.K=false;rights.Q=false}
+    if(p==="k"){rights.k=false;rights.q=false}
+    if(p==="R"){
+      if(from[0]===7&&from[1]===7) rights.K=false;
+      if(from[0]===7&&from[1]===0) rights.Q=false;
+    }
+    if(p==="r"){
+      if(from[0]===0&&from[1]===7) rights.k=false;
+      if(from[0]===0&&from[1]===0) rights.q=false;
+    }
+    if(h.captured==="R") {
+      if(to[0]===7&&to[1]===7) rights.K=false;
+      if(to[0]===7&&to[1]===0) rights.Q=false;
+    }
+    if(h.captured==="r") {
+      if(to[0]===0&&to[1]===7) rights.k=false;
+      if(to[0]===0&&to[1]===0) rights.q=false;
+    }
   }
+  return rights;
+}
+
+function repetitionPositionKey(board,turn,last,historyIndex){
+  const rights=castlingRightsFromHistory(historyIndex);
+  let ep="-";
+  if(last&&last.double&&last.p&&typeOf(last.p)==="p"){
+    const from=last.from,to=last.to;
+    if(Math.abs(from[0]-to[0])===2){
+      const epRow=(from[0]+to[0])/2;
+      ep=`${epRow},${to[1]}`;
+    }
+  }
+  return JSON.stringify({board,turn,rights,ep});
+}
+
+function isThreefoldRepetition(){
+  // A repetition requires the same board, side to move, castling rights,
+  // and en-passant availability—not merely the same piece layout.
+  const keys=[];
+  for(let i=0;i<state.history.length;i++){
+    const h=state.history[i];
+    keys.push(repetitionPositionKey(h.board,h.turn,h.last,i));
+  }
+  keys.push(repetitionPositionKey(state.board,state.turn,state.last,state.history.length));
+  const current=keys[keys.length-1];
+  let count=0;
+  for(const key of keys) if(key===current) count++;
   return count>=3;
 }
 
@@ -582,6 +636,7 @@ function endGame(title,reason){
   stopTimer();
   state.aiTurnId++;
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+  if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
   const playerWon=(state.mode==="ai"&&title==="WHITE WINS");
   state.stats.games++;
   if(title==="DRAW"){state.stats.draws++;state.stats.streak=0}
@@ -627,9 +682,11 @@ function startNewGame(mode="ai",difficulty="Medium"){
   stopTimer();
   state.aiTurnId++;
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+  if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
   state.board=START.map(r=>r.split(""));state.turn="w";state.selected=null;state.legal=[];state.last=null;state.history=[];state.moveLog=[];
   state.mode=mode;state.difficulty=difficulty;state.pendingPromotion=null;state.gameOver=false;state.aiThinking=false;
   state.seconds={w:15,b:15};state.timeouts={w:0,b:0};
+  state.turnStartTimestamp = performance.now();
   saveGame();showScreen("game");applyThemeSettings();renderBoard();startTimer();
 }
 
@@ -648,18 +705,22 @@ function updatePlayers(){
   document.getElementById("blackWarn").textContent=renderDots("b");
 }
 
-/* 1. EXACT ZERO-CROSSING TIMER & 5-TIMEOUT LOSS */
+/* 2 & 3. PRECISE EXACT-ZERO TIMESTAMP TIMER ARCHITECTURE */
 function startTimer(){
   stopTimer();
-  state.timerRunning=true;
+  state.turnStartTimestamp = performance.now();
+  
   state.timerId=setInterval(()=>{
-    if(state.gameOver || !state.timerRunning) return;
+    if(state.gameOver) return;
 
-    // Decrement active player timer
-    state.seconds[state.turn]--;
+    const elapsed = (performance.now() - state.turnStartTimestamp) / 1000;
+    let left = Math.ceil(15 - elapsed);
+    if(left < 0) left = 0;
 
-    if(state.seconds[state.turn] < 0){
-      state.seconds[state.turn] = 15;
+    state.seconds[state.turn] = left;
+
+    if(left <= 0){
+      // Trigger timeout exactly once at zero
       state.timeouts[state.turn]++;
       playSound("capture");
 
@@ -670,21 +731,29 @@ function startTimer(){
         endGame(winner, "Time-out limit reached (5 times)");
         return;
       }
+
+      // Reset turn timer anchor for next fresh 15 seconds
+      state.seconds[state.turn] = 15;
+      state.turnStartTimestamp = performance.now();
+
+      // Safety fallback if AI ever hangs on timeout
+      if(state.mode==="ai" && state.turn==="b" && state.aiThinking){
+        state.aiThinking = false;
+        if(state.aiTimeoutHandle) clearTimeout(state.aiTimeoutHandle);
+        const fallbackMoves = legalMovesFor("b");
+        if(fallbackMoves.length > 0){
+          performMove(fallbackMoves[0]);
+          return;
+        }
+      }
     }
     updatePlayers();
     saveGame();
-  }, 1000);
+  }, 200);
 }
 
 function stopTimer(){
   if(state.timerId){clearInterval(state.timerId);state.timerId=null}
-  state.timerRunning=false;
-}
-
-function togglePause(){
-  if(state.gameOver)return;
-  state.timerRunning=!state.timerRunning;
-  document.getElementById("pauseBtn").textContent=state.timerRunning?"Ⅱ Pause":"▶ Resume";
 }
 
 function rotateView(){
@@ -697,8 +766,7 @@ function rotateView(){
 
 function openMenu(){
   openModal(`<h3>Match menu</h3><p>${state.mode==="ai"?"Vs "+state.difficulty+" AI":"2 Player"} • 15s Turn limit</p>
-  <div class="option-grid"><button class="option" id="menuResume">▶ Resume</button><button class="option" id="menuRestart">↻ Restart</button><button class="option" id="menuThemes">🎨 Display View</button><button class="option" id="menuHome">⌂ Home</button></div>`);
-  document.getElementById("menuResume").onclick=closeModal;
+  <div class="option-grid"><button class="option" id="menuRestart">↻ Restart</button><button class="option" id="menuThemes">🎨 Display View</button><button class="option" id="menuHome">⌂ Home</button></div>`);
   document.getElementById("menuRestart").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)}
   document.getElementById("menuThemes").onclick=()=>showThemes();
   document.getElementById("menuHome").onclick=()=>{
@@ -706,6 +774,7 @@ function openMenu(){
     stopTimer();
     state.aiTurnId++;
     if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+    if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
     showScreen("home");
   }
 }
@@ -779,7 +848,7 @@ function showSettings(){
 }
 
 /* ==========================================================
-   ROBUST AI ENGINE WITH BLACK-POSITIVE EVALUATION 
+   ROBUST AI ENGINE WITH GUARANTEED FALLBACK & ITERATIVE DEEPENING
    ========================================================== */
 function aiMove(){
   if(state.gameOver || state.mode!=="ai" || state.turn!=="b") return;
@@ -791,7 +860,7 @@ function aiMove(){
   const moves = legalMovesFor("b");
   if(!moves.length){ state.aiThinking=false; return; }
 
-  // Guaranteed valid fallback move
+  // 6. GUARANTEED AI FALLBACK
   let chosenMove = moves[Math.floor(Math.random() * moves.length)];
   const diff = state.difficulty;
 
@@ -799,17 +868,17 @@ function aiMove(){
   const timeLimit = budgetMap[diff] || 1500;
   const startTime = performance.now();
 
-  // Safety threshold guard timeout
+  // 9. SAFE AI EMERGENCY TIMEOUT SAFETY
   if(state.aiTimeoutHandle) clearTimeout(state.aiTimeoutHandle);
   state.aiTimeoutHandle = setTimeout(()=>{
     if(state.aiThinking && state.aiTurnId === currentAiTurnId){
       state.aiThinking = false;
       executeAIMoveSafely(chosenMove);
     }
-  }, timeLimit + 1200);
+  }, timeLimit + 1000);
 
   setTimeout(()=>{
-    if(state.aiTurnId !== currentAiTurnId) return; // Stale check
+    if(state.aiTurnId !== currentAiTurnId) return; // Race condition check
     try {
       if(diff === "Easy"){
         if(Math.random() < 0.6 && moves.length > 1){
@@ -820,12 +889,12 @@ function aiMove(){
       } else if(diff === "Medium"){
         chosenMove = getBestMoveIterative(moves, 2, startTime, timeLimit, currentAiTurnId);
       } else if(diff === "Hard"){
-        chosenMove = getBestMoveIterative(moves, 2, startTime, timeLimit, currentAiTurnId);
-      } else {
         chosenMove = getBestMoveIterative(moves, 3, startTime, timeLimit, currentAiTurnId);
+      } else {
+        chosenMove = getBestMoveIterative(moves, 4, startTime, timeLimit, currentAiTurnId);
       }
     } catch(e) {
-      // Keep fallback
+      // Retains guaranteed fallback move
     }
 
     if(state.aiTurnId === currentAiTurnId){
@@ -834,7 +903,7 @@ function aiMove(){
       document.getElementById("boardHint").textContent = "Tap a piece, then tap destination.";
       executeAIMoveSafely(chosenMove);
     }
-  }, 30);
+  }, 20);
 }
 
 function executeAIMoveSafely(move){
@@ -863,18 +932,19 @@ function getBestMoveIterative(moves, targetDepth, startTime, timeLimit, turnId){
       if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
       const nb = applyMove(state.board, m);
       
-      // Standard minimax: Black maximizes score, White minimizes score
       let score = minimaxAlphaBeta(nb, currentDepth - 1, -Infinity, Infinity, "w", startTime, timeLimit, turnId);
-      
-      score += (Math.random() * 0.04); // tiny tie-breaker noise
+      score += (Math.random() * 0.03); // tie-breaker noise
 
       if(score > bestScoreForDepth){
         bestScoreForDepth = score;
         bestMoveForDepth = m;
       }
     }
-    globalBestScore = bestScoreForDepth;
-    bestMove = bestMoveForDepth;
+    // 11. ITERATIVE DEEPENING: Only promote best move if depth completed fully
+    if(performance.now() - startTime <= timeLimit && state.aiTurnId === turnId){
+      globalBestScore = bestScoreForDepth;
+      bestMove = bestMoveForDepth;
+    }
   }
   return bestMove;
 }
@@ -921,7 +991,7 @@ function minimaxAlphaBeta(b, depth, alpha, beta, turn, startTime, timeLimit, tur
   }
 }
 
-/* Black-positive evaluation convention: positive = good for Black, negative = good for White */
+/* 10. BLACK-POSITIVE EVALUATION CONVENTION */
 function evaluateAdvanced(b){
   const val={p:100,n:320,b:330,r:500,q:900,k:20000};
   let score=0;
@@ -974,7 +1044,6 @@ function init(){
   document.getElementById("hintBtn").onclick=hint;
   document.getElementById("rotateBtn").onclick=rotateView;
   document.getElementById("soundBtn").onclick=()=>{state.sound=!state.sound;document.getElementById("soundBtn").textContent=state.sound?"🔊 Sound":"🔇 Sound"};
-  document.getElementById("pauseBtn").onclick=togglePause;
 }
 
 function hint(){
