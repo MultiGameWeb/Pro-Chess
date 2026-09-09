@@ -352,7 +352,7 @@ const state={
   sound:true, volume:.5,
   orientation:0, theme:"classic", viewMode:"3d",
   history:[], moveLog:[], gameOver:false, stats:loadStats(), pendingPromotion:null,
-  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null, aiStartHandle:null
+  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null, aiStartHandle:null, aiSearchHandle:null
 };
 
 function loadStats(){
@@ -622,6 +622,7 @@ function performMove(move,promotion){
   state.aiTurnId++;
   if(state.aiTimeoutHandle) { clearTimeout(state.aiTimeoutHandle); state.aiTimeoutHandle=null; }
   if(state.aiStartHandle) { clearTimeout(state.aiStartHandle); state.aiStartHandle=null; }
+  if(state.aiSearchHandle) { clearTimeout(state.aiSearchHandle); state.aiSearchHandle=null; }
 
   const before=cloneBoard(state.board);
   const p=state.board[move.from[0]][move.from[1]];
@@ -751,6 +752,7 @@ function endGame(title,reason){
   state.aiTurnId++;
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
   if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
+  if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
   const playerWon=(state.mode==="ai"&&title==="WHITE WINS");
   state.stats.games++;
   if(title==="DRAW"){state.stats.draws++;state.stats.streak=0}
@@ -816,6 +818,7 @@ function startNewGame(mode="ai",difficulty="Medium"){
   state.aiTurnId++;
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
   if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
+  if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
   state.board=START.map(r=>r.split(""));state.turn="w";state.selected=null;state.legal=[];state.last=null;state.history=[];state.moveLog=[];
   state.mode=mode;state.difficulty=difficulty;state.pendingPromotion=null;state.gameOver=false;state.aiThinking=false;
   state.seconds={w:15,b:15};state.timeouts={w:0,b:0};
@@ -841,7 +844,8 @@ function updatePlayers(){
 function startTimer(){
   stopTimer();
   state.turnStartTimestamp = performance.now();
-  
+  updatePlayers();
+
   state.timerId=setInterval(()=>{
     if(state.gameOver) return;
 
@@ -851,8 +855,16 @@ function startTimer(){
 
     state.seconds[state.turn] = left;
 
+    // AI must never lose because its search is still running.
+    // Its clock remains visible and counts down to 0 while the AI thinks.
+    if(left <= 0 && state.mode === "ai" && state.turn === "b") {
+      state.seconds[state.turn] = 0;
+      updatePlayers();
+      saveGame();
+      return;
+    }
+
     if(left <= 0){
-      // Trigger timeout exactly once at zero
       state.timeouts[state.turn]++;
       playSound("capture");
 
@@ -864,26 +876,13 @@ function startTimer(){
         return;
       }
 
-      // Reset turn timer anchor for next fresh 15 seconds
       state.seconds[state.turn] = 15;
       state.turnStartTimestamp = performance.now();
-
-      // Safety fallback if AI ever hangs on timeout
-      if(state.mode==="ai" && state.turn==="b" && state.aiThinking){
-        state.aiThinking = false;
-        if(state.aiTimeoutHandle) clearTimeout(state.aiTimeoutHandle);
-        const fallbackMoves = legalMovesFor("b");
-        if(fallbackMoves.length > 0){
-          performMove(fallbackMoves[0]);
-          return;
-        }
-      }
     }
     updatePlayers();
     saveGame();
-  }, 200);
+  }, 100);
 }
-
 function stopTimer(){
   if(state.timerId){clearInterval(state.timerId);state.timerId=null}
 }
@@ -907,6 +906,7 @@ function openMenu(){
     state.aiTurnId++;
     if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
     if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
+    if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
     showScreen("home");
   }
 }
@@ -1225,26 +1225,80 @@ function minimaxAlphaBeta(b,depth,alpha,beta,turn,startTime,timeLimit,turnId,qDe
   return best;
 }
 
-function getBestMoveIterative(moves,targetDepth,startTime,timeLimit,turnId){
+function getBestMoveIterativeAsync(moves,targetDepth,startTime,timeLimit,turnId,qDepth,done){
   let bestMove=moves[0];
-  for(let depth=1;depth<=targetDepth;depth++){
-    if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId)break;
-    let bestForDepth=bestMove,bestScore=-Infinity,completed=true;
-    let rootMoves=orderedMoves(state.board,moves,0,aiTT.get(boardKey(state.board,'b'))?.best||null);
-    const nonRepeating=rootMoves.filter(m=>!isRepeatingAIMove(m));
-    if(nonRepeating.length) rootMoves=nonRepeating;
-    for(const m of rootMoves){
-      if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId){completed=false;break;}
-      const score=minimaxAlphaBeta(applyMove(state.board,m),depth-1,-Infinity,Infinity,'w',startTime,timeLimit,turnId,AI_CFG[state.difficulty]?.q||3,1);
-      if(score>bestScore){bestScore=score;bestForDepth=m}
+  let depth=1;
+  let rootMoves=[];
+  let rootIndex=0;
+  let bestForDepth=bestMove;
+  let bestScore=-Infinity;
+
+  const finish=()=>{
+    if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
+    done(bestMove);
+  };
+
+  const step=()=>{
+    state.aiSearchHandle=null;
+    if(state.gameOver || state.aiTurnId!==turnId){return;}
+
+    const elapsed=performance.now()-startTime;
+    if(depth>targetDepth || elapsed>=timeLimit){
+      finish();
+      return;
     }
-    if(completed){bestMove=bestForDepth;}
-  }
-  return bestMove;
+
+    // Begin a new depth. Work is split by root move so the browser can
+    // repaint the board and update the visible clock between searches.
+    if(rootIndex===0){
+      const ttRoot=aiTT.get(boardKey(state.board,'b'))?.best||null;
+      rootMoves=orderedMoves(state.board,moves,0,ttRoot);
+      const nonRepeating=rootMoves.filter(m=>!isRepeatingAIMove(m));
+      if(nonRepeating.length)rootMoves=nonRepeating;
+      bestForDepth=bestMove;
+      bestScore=-Infinity;
+    }
+
+    if(rootIndex>=rootMoves.length){
+      // Only accept a fully completed depth.
+      bestMove=bestForDepth;
+      depth++;
+      rootIndex=0;
+      state.aiSearchHandle=setTimeout(step,0);
+      return;
+    }
+
+    if(performance.now()-startTime>=timeLimit){
+      finish();
+      return;
+    }
+
+    const m=rootMoves[rootIndex++];
+    let score=-Infinity;
+    try{
+      score=minimaxAlphaBeta(
+        applyMove(state.board,m),
+        depth-1,-Infinity,Infinity,'w',
+        startTime,timeLimit,turnId,qDepth,1
+      );
+    }catch(e){}
+
+    // If this root search consumed the remaining budget, do not promote
+    // the incomplete depth; keep the best move from the previous depth.
+    if(performance.now()-startTime>=timeLimit){
+      finish();
+      return;
+    }
+
+    if(score>bestScore){bestScore=score;bestForDepth=m;}
+    state.aiSearchHandle=setTimeout(step,0);
+  };
+
+  step();
 }
 
 function aiMove(){
-  if(state.gameOver||state.mode!=='ai'||state.turn!=='b')return;
+  if(state.gameOver||state.mode!=="ai"||state.turn!=="b")return;
   const currentAiTurnId=++state.aiTurnId;
   state.aiThinking=true;
   document.getElementById('boardHint').textContent=`${state.difficulty} AI is calculating…`;
@@ -1254,24 +1308,29 @@ function aiMove(){
   const startTime=performance.now();
   clearAIHash();
   let chosenMove=moves[0];
+
+  if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
   if(state.aiTimeoutHandle)clearTimeout(state.aiTimeoutHandle);
+
+  // Absolute safety fallback. This is deliberately outside the chess clock:
+  // AI never loses on time, even if the browser temporarily stalls.
   state.aiTimeoutHandle=setTimeout(()=>{
     if(state.aiThinking&&state.aiTurnId===currentAiTurnId){
       state.aiThinking=false;
+      if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
       document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
       executeAIMoveSafely(chosenMove);
     }
   },cfg.time+1200);
-  setTimeout(()=>{
-    if(state.aiTurnId!==currentAiTurnId)return;
-    try{chosenMove=getBestMoveIterative(moves,cfg.depth,startTime,cfg.time,currentAiTurnId)}catch(e){}
-    if(state.aiTurnId===currentAiTurnId){
-      if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
-      state.aiThinking=false;
-      document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
-      executeAIMoveSafely(chosenMove);
-    }
-  },25);
+
+  getBestMoveIterativeAsync(moves,cfg.depth,startTime,cfg.time,currentAiTurnId,cfg.q,(move)=>{
+    if(state.aiTurnId!==currentAiTurnId||state.gameOver)return;
+    chosenMove=move||chosenMove;
+    if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+    state.aiThinking=false;
+    document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
+    executeAIMoveSafely(chosenMove);
+  });
 }
 
 function executeAIMoveSafely(move){
