@@ -115,7 +115,7 @@ button{font:inherit;color:inherit;border:0}
 .board-hint{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);padding:5px 10px;background:rgba(9,10,13,.85);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#d7d3ca;font-size:10px;backdrop-filter:blur(8px);white-space:nowrap;z-index:10}
 
 /* Rebalanced 4-button control layout */
-.game-controls{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.game-controls{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .control{min-height:44px;border-radius:12px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all .15s ease}
 .control:hover{background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));border-color:rgba(215,173,98,.4);transform:translateY(-1px)}
 .control:active{transform:translateY(1px);box-shadow:0 2px 4px rgba(0,0,0,0.2)}
@@ -133,6 +133,7 @@ button{font:inherit;color:inherit;border:0}
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{padding:10px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06);text-align:center}.stat b{font-size:20px}.stat span{display:block;color:#8e8d87;font-size:9px;margin-top:3px}
 .range-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;font-size:12px}
 .small{font-size:10px;color:#8e8c85}
+.help-section{width:100%;max-width:1200px;margin:6px auto 0;border-top:1px solid rgba(255,255,255,.06);padding-top:6px}.help-section details{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);border-radius:14px;margin:7px 0;overflow:hidden}.help-section summary{list-style:none;cursor:pointer;padding:13px 14px;font-size:12px;font-weight:800;display:flex;justify-content:space-between;align-items:center}.help-section summary::-webkit-details-marker{display:none}.help-section summary::after{content:'+';font-size:18px;color:var(--gold2);font-weight:500}.help-section details[open] summary::after{content:'−'}.help-content{padding:0 14px 14px;color:#aaa8a1;font-size:11px;line-height:1.55}.help-content ul{margin:7px 0 0;padding-left:18px}.help-content li{margin:5px 0}.help-content strong{color:#e9e5db}.theme-swatches{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.theme-dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.2)}
 
 @media(max-width:768px){
   .hero{grid-template-columns:1fr}.hero-copy{text-align:center}.hero-copy p{margin-left:auto;margin-right:auto}.home-actions{justify-content:center}
@@ -175,6 +176,73 @@ button{font:inherit;color:inherit;border:0}
       <button class="mode-card" id="themesBtn"><div class="emoji">🎨</div><strong>Display & Theme</strong><span>3D Tilt / 2D Flat</span></button>
       <button class="mode-card" id="statsBtn"><div class="emoji">📊</div><strong>Statistics</strong><span>Wins & streaks</span></button>
     </div>
+    <div class="help-section">
+      <details>
+        <summary>♟ How to play — Beginner Guide</summary>
+        <div class="help-content">
+          <ul>
+            <li><strong>1. Start a game:</strong> Tap <b>New Game</b>, choose <b>Vs AI</b> or <b>2 Player</b>, then start.</li>
+            <li><strong>2. Select a piece:</strong> Tap your chess piece. Legal destination squares will highlight.</li>
+            <li><strong>3. Move:</strong> Tap the highlighted square where you want the piece to go.</li>
+            <li><strong>4. Learn the goal:</strong> Checkmate the opponent's king while keeping your own king safe.</li>
+            <li><strong>5. Clock:</strong> Each turn has <b>15 seconds</b>. A timeout returns that player's clock to 15s; the <b>5th timeout loses</b> the game.</li>
+            <li><strong>6. Flip Board:</strong> Use <b>Flip Board</b> to rotate the board and change the playing orientation.</li>
+          </ul>
+        </div>
+      </details>
+      <details>
+        <summary>🤖 AI Modes — What is the difference?</summary>
+        <div class="help-content">
+          <ul>
+            <li><strong>Easy:</strong> Quick, beginner-friendly play. Makes simpler choices and occasional random moves.</li>
+            <li><strong>Medium:</strong> More consistent tactical decisions and deeper search than Easy.</li>
+            <li><strong>Hard:</strong> Stronger tactical search and more careful move selection.</li>
+            <li><strong>Grandmaster:</strong> The strongest available mode in this game, using the deepest search budget. It is intended to be very challenging.</li>
+            <li><strong>2 Player:</strong> No AI difficulty is used. Both sides are human players sharing the same device.</li>
+          </ul>
+        </div>
+      </details>
+      <details>
+        <summary>♟ 2 Player — Pass & Play</summary>
+        <div class="help-content">
+          <ul>
+            <li>Choose <b>2 Player</b> when two people want to play on one phone, tablet, or PC.</li>
+            <li>White makes a move first, then hand the device to Player 2 for Black.</li>
+            <li>There is no AI. <b>Easy / Medium / Hard / Grandmaster do not apply.</b></li>
+            <li>Both players use the same <b>15-second turn clock</b> and timeout rule.</li>
+          </ul>
+        </div>
+      </details>
+      <details>
+        <summary>🎨 Themes & Display</summary>
+        <div class="help-content">
+          <ul>
+            <li><strong>3D Cinematic:</strong> Angled board with a premium depth effect.</li>
+            <li><strong>Flat 2D:</strong> Top-down board for a more traditional chess view.</li>
+            <li><strong>Classic Wood:</strong> Warm traditional wood tones.</li>
+            <li><strong>Midnight Graphite:</strong> Cool dark grey board.</li>
+            <li><strong>Emerald Royale:</strong> Deep green tournament-style look.</li>
+            <li><strong>Sapphire Night:</strong> Rich blue premium look.</li>
+            <li><strong>Royal Burgundy:</strong> Deep red luxury look.</li>
+            <li><strong>Ivory Onyx:</strong> High-contrast light and dark stone feel.</li>
+          </ul>
+        </div>
+      </details>
+      <details>
+        <summary>🧠 Practice Steps — Learn Chess From Zero</summary>
+        <div class="help-content">
+          <ul>
+            <li><strong>Practice 1:</strong> Learn how each piece moves — pawn, rook, knight, bishop, queen, king.</li>
+            <li><strong>Practice 2:</strong> Start Easy AI games and focus on making legal moves without rushing.</li>
+            <li><strong>Practice 3:</strong> Before every move, ask: “Is my king safe? What can the opponent capture?”</li>
+            <li><strong>Practice 4:</strong> Try to control the center with pawns and develop knights/bishops early.</li>
+            <li><strong>Practice 5:</strong> Move to Medium when Easy feels comfortable; use Hard and Grandmaster as challenge levels.</li>
+            <li><strong>Practice 6:</strong> Play 2 Player with a friend and review each game by discussing why each move was chosen.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+
     <div class="install-note">📱 <b>App tip:</b> Use browser menu (<b>⋮</b>) to <b>Add to Home Screen</b> for full-screen immersive play.</div>
   </section>
 
@@ -209,9 +277,7 @@ button{font:inherit;color:inherit;border:0}
     </div>
 
     <div class="game-controls">
-      <button class="control" id="undoBtn">↶ Undo</button>
-      <button class="control gold" id="hintBtn">💡 Hint</button>
-      <button class="control" id="rotateBtn">⟳ View</button>
+      <button class="control" id="rotateBtn">⟳ Flip Board</button>
       <button class="control" id="soundBtn">🔊 Sound</button>
     </div>
   </section>
@@ -525,24 +591,6 @@ function formatMove(m,p){
   return letter+squareName(m.to[0],m.to[1])+(m.captured?"×":"");
 }
 
-function undo(){
-  if(!state.history.length||state.gameOver||state.aiThinking)return;
-  state.aiTurnId++;
-  if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
-  if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
-  
-  const n=state.mode==="ai"?Math.min(2,state.history.length):1;
-  for(let i=0;i<n;i++){
-    const h=state.history.pop();
-    state.board=h.board;state.turn=h.turn;state.last=h.last||null;state.moveLog=h.moveLog||[];
-    if(h.seconds) state.seconds={...h.seconds};
-    if(h.timeouts) state.timeouts={...h.timeouts};
-  }
-  state.selected=null;state.legal=[];
-  state.turnStartTimestamp = performance.now();
-  saveGame();renderBoard();updatePlayers();
-}
-
 function checkGameEnd(){
   const lm=legalMovesFor(state.turn);
   if(lm.length===0){
@@ -662,20 +710,30 @@ function closeModal(){modalBackdrop.classList.remove("show")}
 modalBackdrop.addEventListener("click",e=>{if(e.target===modalBackdrop)closeModal()})
 
 function chooseMode(){
-  openModal(`<h3>Start a new match</h3><p>Choose game mode and AI difficulty:</p>
+  openModal(`<h3>Start a new match</h3><p>Choose how you want to play:</p>
   <div class="option-grid">
     <button class="option ${state.mode==="ai"?"active":""}" data-m="ai"><b>🤖 Vs AI</b><div class="small">Play vs computer</div></button>
     <button class="option ${state.mode==="local"?"active":""}" data-m="local"><b>♟ 2 Player</b><div class="small">Pass & play</div></button>
   </div>
-  <div style="margin-top:10px"><div class="small">AI Difficulty Level</div><div class="option-grid" style="margin-top:5px" id="diffGrid">
-    ${["Easy","Medium","Hard","Grandmaster"].map(d=>`<button class="option ${state.difficulty===d?"active":""}" data-d="${d}">${d}</button>`).join("")}
-  </div></div>
-  <div class="install-note" style="margin-top:10px">⏱️ <b>Rule:</b> 15s per turn. 5th timeout results in loss for that player.</div>
+  <div id="difficultyWrap" style="margin-top:12px;display:${state.mode==="ai"?"block":"none"}">
+    <div class="small">AI Difficulty Level</div>
+    <div class="option-grid" style="margin-top:5px">
+      ${["Easy","Medium","Hard","Grandmaster"].map(d=>`<button class="option ${state.difficulty===d?"active":""}" data-d="${d}">${d}</button>`).join("")}
+    </div>
+  </div>
+  <div id="modeExplain" class="install-note" style="margin-top:10px">${state.mode==="ai"?"🤖 Choose an AI level based on the challenge you want.":"♟ Two humans play on the same device. AI difficulty does not apply."}</div>
+  <div class="install-note" style="margin-top:8px">⏱️ <b>Rule:</b> 15s per turn. 5th timeout results in loss for that player.</div>
   <div class="modal-actions"><button class="secondary" id="cancelStart">Cancel</button><button class="primary" id="confirmStart">Start Game</button></div>`);
-  modal.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.m;modal.querySelectorAll("[data-m]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
+  const updateModeUI=()=>{
+    const ai=state.mode==="ai";
+    document.getElementById("difficultyWrap").style.display=ai?"block":"none";
+    document.getElementById("modeExplain").textContent=ai?"🤖 Choose an AI level based on the challenge you want.":"♟ Two humans play on the same device. AI difficulty does not apply.";
+    modal.querySelectorAll("[data-m]").forEach(x=>x.classList.toggle("active",x.dataset.m===state.mode));
+  };
+  modal.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.m;updateModeUI()});
   modal.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{state.difficulty=b.dataset.d;modal.querySelectorAll("[data-d]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
   document.getElementById("cancelStart").onclick=closeModal;
-  document.getElementById("confirmStart").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)}
+  document.getElementById("confirmStart").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)};
 }
 
 function startNewGame(mode="ai",difficulty="Medium"){
@@ -780,23 +838,28 @@ function openMenu(){
 }
 
 function showThemes(){
-  openModal(`<h3>Display Settings</h3><p>Switch between 3D Cinematic view or flat 2D board view:</p>
+  const themes=[
+    ["classic","Classic Wood","Warm traditional wood"],
+    ["midnight","Midnight Graphite","Cool dark stone"],
+    ["emerald","Emerald Royale","Deep tournament green"],
+    ["sapphire","Sapphire Night","Premium deep blue"],
+    ["burgundy","Royal Burgundy","Luxury wine red"],
+    ["ivory","Ivory Onyx","Light stone contrast"]
+  ];
+  openModal(`<h3>Display Settings</h3><p>Choose board view and a premium board theme:</p>
   <div class="option-grid">
     <button class="option ${state.viewMode==="3d"?"active":""}" data-view="3d"><b>📐 3D Cinematic</b><div class="small">Tilted luxury board</div></button>
     <button class="option ${state.viewMode==="flat"?"active":""}" data-view="flat"><b>♟ Flat 2D</b><div class="small">Top-down classic view</div></button>
   </div>
-  <div class="small" style="margin-top:12px">Board color theme</div>
+  <div class="small" style="margin-top:12px">Board theme</div>
   <div class="option-grid" style="margin-top:5px">
-    <button class="option ${state.theme==="classic"?"active":""}" data-th="classic"><b>Classic Wood</b></button>
-    <button class="option ${state.theme==="midnight"?"active":""}" data-th="midnight"><b>Midnight Graphite</b></button>
+    ${themes.map(([id,name,desc])=>`<button class="option ${state.theme===id?"active":""}" data-th="${id}"><b>${name}</b><div class="small">${desc}</div></button>`).join("")}
   </div>
   <div class="modal-actions"><button class="secondary" id="themeClose">Close</button><button class="primary" id="themeApply">Apply</button></div>`);
-  
   modal.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{state.viewMode=b.dataset.view;modal.querySelectorAll("[data-view]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
   modal.querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{state.theme=b.dataset.th;modal.querySelectorAll("[data-th]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
-  
   document.getElementById("themeClose").onclick=closeModal;
-  document.getElementById("themeApply").onclick=()=>{applyThemeSettings();closeModal();}
+  document.getElementById("themeApply").onclick=()=>{applyThemeSettings();closeModal();};
 }
 
 function applyThemeSettings(){
@@ -807,15 +870,21 @@ function applyThemeSettings(){
     boardTilt.classList.remove("flat");
     boardTilt.style.transform=state.orientation?"rotateX(38deg) rotateZ(180deg)":"rotateX(40deg) rotateZ(0deg)";
   }
-  if(state.theme==="midnight"){
-    document.documentElement.style.setProperty("--light","#cfd4db");
-    document.documentElement.style.setProperty("--dark","#4b4f58");
-  }else{
-    document.documentElement.style.setProperty("--light","#e5d6b7");
-    document.documentElement.style.setProperty("--dark","#6e4e32");
-  }
-  document.querySelectorAll(".square.light").forEach(x=>x.style.background=state.theme==="midnight"?"linear-gradient(145deg,#d7dbe1,#b8bec8)":"linear-gradient(145deg,#e7d7b9,#cfbd99)");
-  document.querySelectorAll(".square.dark").forEach(x=>x.style.background=state.theme==="midnight"?"linear-gradient(145deg,#555b68,#3e434d)":"linear-gradient(145deg,#765438,#614227)");
+  const themes={
+    classic:{light:["#e7d7b9","#cfbd99"],dark:["#765438","#614227"],base:["#885f3c","#3c2214"]},
+    midnight:{light:["#d7dbe1","#b8bec8"],dark:["#555b68","#3e434d"],base:["#666b75","#242832"]},
+    emerald:{light:["#d4dfc8","#b8caaa"],dark:["#42634c","#294536"],base:["#4b7256","#1d3025"]},
+    sapphire:{light:["#d4deeb","#b7c7dc"],dark:["#435e80","#263a56"],base:["#3e5c82","#17263b"]},
+    burgundy:{light:["#ead0cc","#d8ada7"],dark:["#713b42","#51262e"],base:["#743940","#32171d"]},
+    ivory:{light:["#f0eee7","#d7d2c7"],dark:["#45464a","#292b2f"],base:["#56504a","#23211f"]}
+  };
+  const t=themes[state.theme]||themes.classic;
+  document.documentElement.style.setProperty("--light",t.light[0]);
+  document.documentElement.style.setProperty("--dark",t.dark[0]);
+  document.querySelectorAll(".square.light").forEach(x=>x.style.background=`linear-gradient(145deg,${t.light[0]},${t.light[1]})`);
+  document.querySelectorAll(".square.dark").forEach(x=>x.style.background=`linear-gradient(145deg,${t.dark[0]},${t.dark[1]})`);
+  const bases=document.querySelectorAll(".board-base");
+  bases.forEach(x=>x.style.background=`linear-gradient(145deg,${t.base[0]},${t.base[1]})`);
   saveGame();
 }
 
@@ -1040,24 +1109,8 @@ function init(){
   document.getElementById("themesBtn").onclick=showThemes;
   document.getElementById("statsBtn").onclick=showStats;
   document.getElementById("gameMenu").onclick=openMenu;
-  document.getElementById("undoBtn").onclick=undo;
-  document.getElementById("hintBtn").onclick=hint;
-  document.getElementById("rotateBtn").onclick=rotateView;
+  document.getElementById("rotateBtn").onclick=()=>{rotateView();document.getElementById("rotateBtn").textContent="⟳ Flip Board"};
   document.getElementById("soundBtn").onclick=()=>{state.sound=!state.sound;document.getElementById("soundBtn").textContent=state.sound?"🔊 Sound":"🔇 Sound"};
-}
-
-function hint(){
-  if(state.gameOver||state.aiThinking)return;
-  const moves=legalMovesFor(state.turn);if(!moves.length)return;
-  let best=moves[0],score=state.turn==="w"?Infinity:-Infinity;
-  for(const m of moves){
-    const sc=evaluateAdvanced(applyMove(state.board,m));
-    if(state.turn==="w"?sc<score:sc>score){score=sc;best=m}
-  }
-  state.selected=best.from;state.legal=[best];
-  document.getElementById("boardHint").textContent=`Hint: ${squareName(best.from[0],best.from[1])} → ${squareName(best.to[0],best.to[1])}`;
-  renderBoard();
-  setTimeout(()=>{if(!state.gameOver){state.selected=null;state.legal=[];document.getElementById("boardHint").textContent="Tap a piece, then tap a destination.";renderBoard()}},1800)
 }
 
 init();
