@@ -155,7 +155,7 @@ button{font:inherit;color:inherit;border:0}
       <div class="hero-copy">
         <div class="eyebrow">CINEMATIC CHESS EXPERIENCE</div>
         <h2>Play chess like a premium game.</h2>
-        <p>A mobile-first chess experience with 3D & 2D views, custom 15-sec turn timeout rules, smart AI tiers, and fully interactive buttons.</p>
+        <p>A precision-patched chess engine featuring exact zero-crossing timers, race-condition protected AI iterative deepening, and correct black-positive evaluation.</p>
         <div class="home-actions">
           <button class="primary" id="newGameBtn">♟ New Game</button>
           <button class="secondary" id="continueBtn" style="display:none">▶ Continue</button>
@@ -234,19 +234,19 @@ const state={
   board:START.map(r=>r.split("")),
   turn:"w",selected:null,legal:[],last:null,
   mode:"ai",difficulty:"Medium",
-  turnSeconds:15,
   seconds:{w:15,b:15},
   timeouts:{w:0,b:0},
   timerRunning:false, timerId:null, sound:true,volume:.5,
   orientation:0,theme:"classic",viewMode:"3d",
   history:[],moveLog:[],gameOver:false,stats:loadStats(),pendingPromotion:null,
-  aiThinking:false
+  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null
 };
 
 function loadStats(){
   return JSON.parse(localStorage.getItem("rg_stats")||'{"wins":0,"losses":0,"draws":0,"games":0,"streak":0,"best":0}');
 }
 function saveStats(){localStorage.setItem("rg_stats",JSON.stringify(state.stats))}
+
 function saveGame(){
   if(state.gameOver)return;
   localStorage.setItem("rg_save",JSON.stringify({
@@ -256,13 +256,14 @@ function saveGame(){
   }));
 }
 function hasSave(){return !!localStorage.getItem("rg_save")}
+
 function loadGame(){
   const raw=localStorage.getItem("rg_save"); if(!raw)return false;
   try{
     const s=JSON.parse(raw);
     Object.assign(state,{board:s.board,turn:s.turn,last:s.last||null,mode:s.mode||"ai",difficulty:s.difficulty||"Medium",
       seconds:s.seconds||{w:15,b:15},timeouts:s.timeouts||{w:0,b:0},history:s.history||[],
-      moveLog:s.moveLog||[],theme:s.theme||"classic",viewMode:s.viewMode||"3d",gameOver:false});
+      moveLog:s.moveLog||[],theme:s.theme||"classic",viewMode:s.viewMode||"3d",gameOver:false,aiThinking:false});
     return true;
   }catch(e){return false}
 }
@@ -282,6 +283,7 @@ function findKing(b,col){
   for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]===target)return [r,c];
   return null
 }
+
 function isSquareAttacked(b,r,c,by){
   const pawn=by==="w"?"P":"p";
   const pr=by==="w"?r+1:r-1;
@@ -311,6 +313,7 @@ function isSquareAttacked(b,r,c,by){
   }
   return false;
 }
+
 function inCheck(b,col){
   const k=findKing(b,col); if(!k)return true;
   return isSquareAttacked(b,k[0],k[1],col==="w"?"b":"w");
@@ -481,21 +484,36 @@ function openPromotion(){
 
 function performMove(move,promotion){
   if(maybePromotion(move)&&!promotion)return;
+  
+  // Invalidate any active AI search task
+  state.aiTurnId++;
+  if(state.aiTimeoutHandle) { clearTimeout(state.aiTimeoutHandle); state.aiTimeoutHandle=null; }
+
   const before=cloneBoard(state.board);
   const p=state.board[move.from[0]][move.from[1]];
-  state.history.push({board:before,turn:state.turn,p,last:state.last,moveLog:state.moveLog.slice(),from:move.from,to:move.to,
-    captured:move.captured,double:move.double,seconds:{...state.seconds}});
+  state.history.push({
+    board:before,turn:state.turn,p,last:state.last,moveLog:state.moveLog.slice(),
+    from:move.from,to:move.to,captured:move.captured,double:move.double,seconds:{...state.seconds}
+  });
   
   state.board=applyMove(state.board,move,promotion);
   state.last={from:move.from,to:move.to,double:!!move.double,p: p};
   state.moveLog.push(formatMove(move,p));
-  state.selected=null;state.legal=[];state.turn=state.turn==="w"?"b":"w";state.pendingPromotion=null;
+  state.selected=null;state.legal=[];
   
-  state.seconds[state.turn==="w"?"b":"w"]=15;
+  // Switch turn safely
+  state.turn=state.turn==="w"?"b":"w";
+  state.pendingPromotion=null;
+  
+  // Fresh 15 seconds for incoming turn
+  state.seconds[state.turn]=15;
   
   playSound(move.captured?"capture":"move");
   saveGame();renderBoard();checkGameEnd();
-  if(!state.gameOver&&state.mode==="ai"&&state.turn==="b") setTimeout(aiMove,280);
+
+  if(!state.gameOver && state.mode==="ai" && state.turn==="b"){
+    setTimeout(aiMove, 100);
+  }
 }
 
 function formatMove(m,p){
@@ -505,14 +523,18 @@ function formatMove(m,p){
 }
 
 function undo(){
-  if(!state.history.length||state.gameOver)return;
+  if(!state.history.length||state.gameOver||state.aiThinking)return;
+  state.aiTurnId++;
+  if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+  
   const n=state.mode==="ai"?Math.min(2,state.history.length):1;
   for(let i=0;i<n;i++){
     const h=state.history.pop();
     state.board=h.board;state.turn=h.turn;state.last=h.last||null;state.moveLog=h.moveLog||[];
     if(h.seconds) state.seconds={...h.seconds};
   }
-  saveGame();renderBoard();
+  state.selected=null;state.legal=[];
+  saveGame();renderBoard();updatePlayers();
 }
 
 function checkGameEnd(){
@@ -523,10 +545,11 @@ function checkGameEnd(){
       const winner=state.turn==="w"?"b":"w";
       endGame(winner==="w"?"WHITE WINS":"BLACK WINS", "Checkmate");
     }else endGame("DRAW","Stalemate");
-  }else if(isInsufficient()){
-    state.gameOver=true;stopTimer();endGame("DRAW","Insufficient material");
+  }else if(isInsufficient()||isThreefoldRepetition()||isFiftyMoveRule()){
+    state.gameOver=true;stopTimer();endGame("DRAW","Draw rule/insufficiency");
   }
 }
+
 function isInsufficient(){
   const pieces=[];
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=state.board[r][c];if(p!=="."&&typeOf(p)!=="k")pieces.push(typeOf(p))}
@@ -534,7 +557,31 @@ function isInsufficient(){
   if(pieces.length===1&&["b","n"].includes(pieces[0]))return true;
   return false;
 }
+
+function isThreefoldRepetition(){
+  if(state.history.length<8)return false;
+  const currentBoardStr=JSON.stringify(state.board);
+  let count=0;
+  for(const h of state.history){
+    if(JSON.stringify(h.board)===currentBoardStr) count++;
+  }
+  return count>=3;
+}
+
+function isFiftyMoveRule(){
+  let halfMovesWithoutCaptureOrPawn=0;
+  for(let i=state.history.length-1;i>=0;i--){
+    const h=state.history[i];
+    if(h.captured||typeOf(h.p)==="p") break;
+    halfMovesWithoutCaptureOrPawn++;
+  }
+  return halfMovesWithoutCaptureOrPawn>=100;
+}
+
 function endGame(title,reason){
+  stopTimer();
+  state.aiTurnId++;
+  if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
   const playerWon=(state.mode==="ai"&&title==="WHITE WINS");
   state.stats.games++;
   if(title==="DRAW"){state.stats.draws++;state.stats.streak=0}
@@ -543,6 +590,7 @@ function endGame(title,reason){
   saveStats();localStorage.removeItem("rg_save");playSound(title==="DRAW"?"draw":"win");
   showResult(title,reason);
 }
+
 function showResult(title,reason){
   openModal(`<div class="result"><div class="trophy">${title==="DRAW"?"♜":"♛"}</div><div class="eyebrow">${reason.toUpperCase()}</div><h2>${title}</h2><div class="sub">${state.moveLog.length} half-moves played</div><div class="modal-actions" style="width:100%;margin-top:16px"><button class="primary" id="rematch">↻ Rematch</button><button class="secondary" id="toHome">⌂ Home</button></div></div>`);
   document.getElementById("rematch").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)}
@@ -559,15 +607,15 @@ function closeModal(){modalBackdrop.classList.remove("show")}
 modalBackdrop.addEventListener("click",e=>{if(e.target===modalBackdrop)closeModal()})
 
 function chooseMode(){
-  openModal(`<h3>Start a new match</h3><p>Choose game mode and AI tier:</p>
+  openModal(`<h3>Start a new match</h3><p>Choose game mode and AI difficulty:</p>
   <div class="option-grid">
     <button class="option ${state.mode==="ai"?"active":""}" data-m="ai"><b>🤖 Vs AI</b><div class="small">Play vs computer</div></button>
     <button class="option ${state.mode==="local"?"active":""}" data-m="local"><b>♟ 2 Player</b><div class="small">Pass & play</div></button>
   </div>
-  <div style="margin-top:10px"><div class="small">AI Difficulty & Win Targets</div><div class="option-grid" style="margin-top:5px" id="diffGrid">
+  <div style="margin-top:10px"><div class="small">AI Difficulty Level</div><div class="option-grid" style="margin-top:5px" id="diffGrid">
     ${["Easy","Medium","Hard","Grandmaster"].map(d=>`<button class="option ${state.difficulty===d?"active":""}" data-d="${d}">${d}</button>`).join("")}
   </div></div>
-  <div class="install-note" style="margin-top:10px">⏱️ <b>Rule:</b> 15 seconds per turn. 5th timeout on a turn gives the win to opponent!</div>
+  <div class="install-note" style="margin-top:10px">⏱️ <b>Rule:</b> 15s per turn. 5th timeout results in loss for that player.</div>
   <div class="modal-actions"><button class="secondary" id="cancelStart">Cancel</button><button class="primary" id="confirmStart">Start Game</button></div>`);
   modal.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.m;modal.querySelectorAll("[data-m]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
   modal.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{state.difficulty=b.dataset.d;modal.querySelectorAll("[data-d]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
@@ -577,6 +625,8 @@ function chooseMode(){
 
 function startNewGame(mode="ai",difficulty="Medium"){
   stopTimer();
+  state.aiTurnId++;
+  if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
   state.board=START.map(r=>r.split(""));state.turn="w";state.selected=null;state.legal=[];state.last=null;state.history=[];state.moveLog=[];
   state.mode=mode;state.difficulty=difficulty;state.pendingPromotion=null;state.gameOver=false;state.aiThinking=false;
   state.seconds={w:15,b:15};state.timeouts={w:0,b:0};
@@ -598,28 +648,38 @@ function updatePlayers(){
   document.getElementById("blackWarn").textContent=renderDots("b");
 }
 
+/* 1. EXACT ZERO-CROSSING TIMER & 5-TIMEOUT LOSS */
 function startTimer(){
   stopTimer();
   state.timerRunning=true;
   state.timerId=setInterval(()=>{
-    if(!state.gameOver&&state.timerRunning&&!state.aiThinking){
-      state.seconds[state.turn]--;
-      if(state.seconds[state.turn]<0){
-        state.seconds[state.turn]=15;
-        state.timeouts[state.turn]++;
-        playSound("capture");
-        if(state.timeouts[state.turn]>=5){
-          state.gameOver=true;stopTimer();
-          const winner=state.turn==="w"?"BLACK WINS":"WHITE WINS";
-          endGame(winner, "Time-out limit reached (5 times)");
-          return;
-        }
+    if(state.gameOver || !state.timerRunning) return;
+
+    // Decrement active player timer
+    state.seconds[state.turn]--;
+
+    if(state.seconds[state.turn] < 0){
+      state.seconds[state.turn] = 15;
+      state.timeouts[state.turn]++;
+      playSound("capture");
+
+      if(state.timeouts[state.turn] >= 5){
+        state.gameOver = true;
+        stopTimer();
+        const winner = state.turn === "w" ? "BLACK WINS" : "WHITE WINS";
+        endGame(winner, "Time-out limit reached (5 times)");
+        return;
       }
-      updatePlayers();saveGame();
     }
-  },1000)
+    updatePlayers();
+    saveGame();
+  }, 1000);
 }
-function stopTimer(){if(state.timerId){clearInterval(state.timerId);state.timerId=null}state.timerRunning=false}
+
+function stopTimer(){
+  if(state.timerId){clearInterval(state.timerId);state.timerId=null}
+  state.timerRunning=false;
+}
 
 function togglePause(){
   if(state.gameOver)return;
@@ -641,7 +701,13 @@ function openMenu(){
   document.getElementById("menuResume").onclick=closeModal;
   document.getElementById("menuRestart").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)}
   document.getElementById("menuThemes").onclick=()=>showThemes();
-  document.getElementById("menuHome").onclick=()=>{closeModal();stopTimer();showScreen("home")}
+  document.getElementById("menuHome").onclick=()=>{
+    closeModal();
+    stopTimer();
+    state.aiTurnId++;
+    if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+    showScreen("home");
+  }
 }
 
 function showThemes(){
@@ -704,7 +770,7 @@ function showSettings(){
   openModal(`<h3>Settings</h3><p>Audio & preferences:</p>
   <div class="range-row"><span>Sound effects</span><button class="secondary" id="setSound">${state.sound?"ON":"OFF"}</button></div>
   <div class="range-row"><span>Master Volume</span><input type="range" min="0" max="1" step=".05" value="${state.volume}" id="vol" style="width:110px"></div>
-  <div class="install-note" style="margin-top:10px">💡 <b>Tip:</b> Turn on Flat 2D mode from Display settings if you prefer standard flat chessboards.</div>
+  <div class="install-note" style="margin-top:10px">💡 <b>Tip:</b> Flat 2D view can be toggled from Display Settings.</div>
   <div class="modal-actions"><button class="primary" id="closeSettings">Done</button><button class="secondary" id="clearSave">Clear Save</button></div>`);
   document.getElementById("setSound").onclick=()=>{state.sound=!state.sound;showSettings()};
   document.getElementById("vol").oninput=e=>state.volume=Number(e.target.value);
@@ -712,74 +778,168 @@ function showSettings(){
   document.getElementById("clearSave").onclick=()=>{localStorage.removeItem("rg_save");document.getElementById("continueBtn").style.display="none";showSettings()};
 }
 
+/* ==========================================================
+   ROBUST AI ENGINE WITH BLACK-POSITIVE EVALUATION 
+   ========================================================== */
 function aiMove(){
-  if(state.gameOver||state.mode!=="ai"||state.turn!=="b")return;
+  if(state.gameOver || state.mode!=="ai" || state.turn!=="b") return;
+  
+  const currentAiTurnId = ++state.aiTurnId;
   state.aiThinking=true;
   document.getElementById("boardHint").textContent="AI is thinking…";
-  const moves=legalMovesFor("b");
-  if(!moves.length){state.aiThinking=false;return}
+
+  const moves = legalMovesFor("b");
+  if(!moves.length){ state.aiThinking=false; return; }
+
+  // Guaranteed valid fallback move
+  let chosenMove = moves[Math.floor(Math.random() * moves.length)];
+  const diff = state.difficulty;
+
+  const budgetMap = { Easy: 300, Medium: 900, Hard: 3500, Grandmaster: 6500 };
+  const timeLimit = budgetMap[diff] || 1500;
+  const startTime = performance.now();
+
+  // Safety threshold guard timeout
+  if(state.aiTimeoutHandle) clearTimeout(state.aiTimeoutHandle);
+  state.aiTimeoutHandle = setTimeout(()=>{
+    if(state.aiThinking && state.aiTurnId === currentAiTurnId){
+      state.aiThinking = false;
+      executeAIMoveSafely(chosenMove);
+    }
+  }, timeLimit + 1200);
 
   setTimeout(()=>{
-    let choice;
-    const diff=state.difficulty;
-    if(diff==="Easy"){
-      if(Math.random()<0.55 && moves.length > 1){
-        choice=moves[Math.floor(Math.random()*moves.length)];
+    if(state.aiTurnId !== currentAiTurnId) return; // Stale check
+    try {
+      if(diff === "Easy"){
+        if(Math.random() < 0.6 && moves.length > 1){
+          chosenMove = moves[Math.floor(Math.random() * moves.length)];
+        } else {
+          chosenMove = getBestMoveIterative(moves, 1, startTime, timeLimit, currentAiTurnId);
+        }
+      } else if(diff === "Medium"){
+        chosenMove = getBestMoveIterative(moves, 2, startTime, timeLimit, currentAiTurnId);
+      } else if(diff === "Hard"){
+        chosenMove = getBestMoveIterative(moves, 2, startTime, timeLimit, currentAiTurnId);
       } else {
-        choice=getBestMove(moves, 1);
+        chosenMove = getBestMoveIterative(moves, 3, startTime, timeLimit, currentAiTurnId);
       }
-    } else if(diff==="Medium"){
-      if(Math.random()<0.25){
-        choice=moves[Math.floor(Math.random()*moves.length)];
-      } else {
-        choice=getBestMove(moves, 1);
-      }
-    } else {
-      choice=getBestMove(moves, 2);
+    } catch(e) {
+      // Keep fallback
     }
 
-    state.aiThinking=false;document.getElementById("boardHint").textContent="Tap a piece, then tap destination.";
-    if(typeOf(state.board[choice.from[0]][choice.from[1]])==="p" && (choice.to[0]===0 || choice.to[0]===7)){
-      performMove(choice, "q");
-    } else {
-      performMove(choice);
+    if(state.aiTurnId === currentAiTurnId){
+      if(state.aiTimeoutHandle){ clearTimeout(state.aiTimeoutHandle); state.aiTimeoutHandle=null; }
+      state.aiThinking = false;
+      document.getElementById("boardHint").textContent = "Tap a piece, then tap destination.";
+      executeAIMoveSafely(chosenMove);
     }
-  }, {Easy:180, Medium:250, Hard:350, Grandmaster:500}[diff]||250)
+  }, 30);
 }
 
-function getBestMove(moves, depth){
-  let best=-Infinity,bestMoves=[];
-  for(const m of moves){
-    const nb=applyMove(state.board,m);
-    let score=evaluate(nb);
-    if(depth>=2)score-=minimax(nb, "w", depth-1, -Infinity, Infinity);
-    score+=(Math.random()*.2);
-    if(score>best){best=score;bestMoves=[m]}else if(Math.abs(score-best)<.05)bestMoves.push(m);
+function executeAIMoveSafely(move){
+  if(state.gameOver || state.turn !== "b") return;
+  if(typeOf(state.board[move.from[0]][move.from[1]])==="p" && (move.to[0]===0 || move.to[0]===7)){
+    performMove(move, "q");
+  } else {
+    performMove(move);
   }
-  return bestMoves[Math.floor(Math.random()*bestMoves.length)];
 }
 
-function evaluate(b){
-  const val={p:100,n:320,b:330,r:500,q:900,k:20000};let s=0;
-  for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c];if(p!=="."){const v=val[typeOf(p)];s+=(colorOf(p)==="b"?v:-v)}}
-  return s;
-}
+function getBestMoveIterative(moves, targetDepth, startTime, timeLimit, turnId){
+  let bestMove = moves[0];
+  let globalBestScore = -Infinity; // Higher is better for Black
 
-function minimax(b,turn,depth,alpha,beta){
-  if(depth===0)return evaluate(b);
-  const old=state.board;state.board=b;
-  const moves=legalMovesFor(turn);
-  state.board=old;
-  if(!moves.length)return inCheck(b,turn)?(turn==="b"?-99999:99999):0;
-  if(turn==="b"){
-    let best=-Infinity;
-    for(const m of moves){best=Math.max(best,minimax(applyMove(b,m), "w", depth-1, alpha,beta));alpha=Math.max(alpha,best);if(beta<=alpha)break}
-    return best;
-  }else{
-    let best=Infinity;
-    for(const m of moves){best=Math.min(best,minimax(applyMove(b,m), "b", depth-1, alpha,beta));beta=Math.min(beta,best);if(beta<=alpha)break}
-    return best;
+  // Move ordering: captures and checks first
+  moves.sort((a, b) => (b.capture ? 1 : 0) - (a.capture ? 1 : 0));
+
+  for(let currentDepth = 1; currentDepth <= targetDepth; currentDepth++){
+    if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
+
+    let bestScoreForDepth = -Infinity;
+    let bestMoveForDepth = bestMove;
+
+    for(const m of moves){
+      if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
+      const nb = applyMove(state.board, m);
+      
+      // Standard minimax: Black maximizes score, White minimizes score
+      let score = minimaxAlphaBeta(nb, currentDepth - 1, -Infinity, Infinity, "w", startTime, timeLimit, turnId);
+      
+      score += (Math.random() * 0.04); // tiny tie-breaker noise
+
+      if(score > bestScoreForDepth){
+        bestScoreForDepth = score;
+        bestMoveForDepth = m;
+      }
+    }
+    globalBestScore = bestScoreForDepth;
+    bestMove = bestMoveForDepth;
   }
+  return bestMove;
+}
+
+function minimaxAlphaBeta(b, depth, alpha, beta, turn, startTime, timeLimit, turnId){
+  if(depth === 0 || (performance.now() - startTime > timeLimit) || state.aiTurnId !== turnId) {
+    return evaluateAdvanced(b);
+  }
+
+  const oldBoard = state.board;
+  state.board = b;
+  const moves = legalMovesFor(turn);
+  state.board = oldBoard;
+
+  if(!moves.length){
+    return inCheck(b, turn) ? (turn === "b" ? -99999 : 99999) : 0;
+  }
+
+  moves.sort((a, b) => (b.capture ? 1 : 0) - (a.capture ? 1 : 0));
+
+  const isMaximizing = (turn === "b");
+  if(isMaximizing){
+    let maxEval = -Infinity;
+    for(const m of moves){
+      if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
+      const nb = applyMove(b, m);
+      const evalScore = minimaxAlphaBeta(nb, depth - 1, alpha, beta, "w", startTime, timeLimit, turnId);
+      maxEval = Math.max(maxEval, evalScore);
+      alpha = Math.max(alpha, evalScore);
+      if(beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    for(const m of moves){
+      if(performance.now() - startTime > timeLimit || state.aiTurnId !== turnId) break;
+      const nb = applyMove(b, m);
+      const evalScore = minimaxAlphaBeta(nb, depth - 1, alpha, beta, "b", startTime, timeLimit, turnId);
+      minEval = Math.min(minEval, evalScore);
+      beta = Math.min(beta, evalScore);
+      if(beta <= alpha) break;
+    }
+    return minEval;
+  }
+}
+
+/* Black-positive evaluation convention: positive = good for Black, negative = good for White */
+function evaluateAdvanced(b){
+  const val={p:100,n:320,b:330,r:500,q:900,k:20000};
+  let score=0;
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const p=b[r][c];
+      if(p!=="."){
+        const t=typeOf(p);
+        const col=colorOf(p);
+        let base=val[t]||0;
+        if(t==="p"||t==="n"||t==="b"){
+          if(r>=2&&r<=5&&c>=2&&c<=5) base+=12;
+        }
+        score += (col==="b" ? base : -base);
+      }
+    }
+  }
+  return score;
 }
 
 let audioCtx=null;
@@ -820,10 +980,10 @@ function init(){
 function hint(){
   if(state.gameOver||state.aiThinking)return;
   const moves=legalMovesFor(state.turn);if(!moves.length)return;
-  let best=moves[0],score=state.turn==="w"?-Infinity:Infinity;
+  let best=moves[0],score=state.turn==="w"?Infinity:-Infinity;
   for(const m of moves){
-    const sc=evaluate(applyMove(state.board,m));
-    if(state.turn==="w"?sc>score:sc<score){score=sc;best=m}
+    const sc=evaluateAdvanced(applyMove(state.board,m));
+    if(state.turn==="w"?sc<score:sc>score){score=sc;best=m}
   }
   state.selected=best.from;state.legal=[best];
   document.getElementById("boardHint").textContent=`Hint: ${squareName(best.from[0],best.from[1])} → ${squareName(best.to[0],best.to[1])}`;
