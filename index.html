@@ -7,6 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Royal Gambit — 3D Chess</title>
 <style>
 :root{
@@ -51,6 +52,7 @@ button{font:inherit;color:inherit;border:0}
 .primary{background:linear-gradient(135deg,#f2d693,#b8893f);color:#16120b;box-shadow:0 6px 20px rgba(185,137,63,.35),inset 0 1px 0 rgba(255,255,255,.5);border:1px solid #9a7332}
 .primary:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(185,137,63,.5),inset 0 1px 0 rgba(255,255,255,.7)}
 .primary:active{transform:translateY(1px);box-shadow:0 2px 8px rgba(185,137,63,.3)}
+.home-actions a.secondary{text-decoration:none}
 
 .secondary{background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.15);box-shadow:0 4px 15px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,.1)}
 .secondary:hover{background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));border-color:rgba(255,255,255,.3);transform:translateY(-2px)}
@@ -161,6 +163,8 @@ button{font:inherit;color:inherit;border:0}
         <div class="home-actions">
           <button class="primary" id="newGameBtn">♟ New Game</button>
           <button class="secondary" id="continueBtn" style="display:none">▶ Continue</button>
+          <button class="secondary" id="installBtn" style="display:none">⬇ Install App</button>
+          <a class="secondary" id="mindGamesBtn" href="https://multigameweb.github.io/Game-Zone/" target="_blank" rel="noopener">🧠 Play More Mind Games</a>
         </div>
       </div>
       <div class="preview-wrap">
@@ -243,7 +247,7 @@ button{font:inherit;color:inherit;border:0}
       </details>
     </div>
 
-    <div class="install-note">📱 <b>App tip:</b> Use browser menu (<b>⋮</b>) to <b>Add to Home Screen</b> for full-screen immersive play.</div>
+    <div class="install-note">📱 <b>Install:</b> Use <b>Install App</b> when available. On iPhone/iPad, use Share → <b>Add to Home Screen</b>.</div>
   </section>
 
   <!-- GAME SCREEN -->
@@ -1201,7 +1205,36 @@ function buildMini(){
   START.join("").split("").forEach(p=>{const s=document.createElement("div");s.className="ms";if(p!=="."){s.textContent=PIECES[colorOf(p)][typeOf(p)];s.classList.add(colorOf(p)==="w"?"white":"black")}m.appendChild(s)})
 }
 
+let deferredInstallPrompt=null;
+function setupInstall(){
+  const btn=document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault();
+    deferredInstallPrompt=e;
+    btn.style.display='inline-flex';
+  });
+  window.addEventListener('appinstalled',()=>{
+    deferredInstallPrompt=null;
+    btn.style.display='none';
+    btn.textContent='✓ Installed';
+  });
+  btn.onclick=async()=>{
+    if(!deferredInstallPrompt){
+      openModal('<h3>Install Royal Gambit</h3><p>On iPhone/iPad: tap Share and choose <b>Add to Home Screen</b>.<br><br>On Android/Chrome: use the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p><div class="modal-actions"><button class="primary" id="installClose">Done</button></div>');
+      document.getElementById('installClose').onclick=closeModal;
+      return;
+    }
+    const promptEvent=deferredInstallPrompt;
+    deferredInstallPrompt=null;
+    await promptEvent.prompt();
+    const choice=await promptEvent.userChoice;
+    if(choice.outcome!=='accepted') btn.style.display='inline-flex';
+  };
+}
+
 function init(){
+  setupInstall();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   buildMini();
   if(hasSave()){document.getElementById("continueBtn").style.display="inline-block"}
   document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;chooseMode()});
