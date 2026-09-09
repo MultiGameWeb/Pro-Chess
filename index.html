@@ -7,9 +7,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
 <title>Royal Gambit — 3D Chess</title>
 <style>
 :root{
@@ -49,9 +46,8 @@ button{font:inherit;color:inherit;border:0}
 .hero h2{font-size:clamp(28px,4.8vw,54px);line-height:1.05;margin:12px 0 14px;letter-spacing:-.04em}
 .hero p{color:#b9b7b0;max-width:570px;font-size:15px;line-height:1.6;margin-bottom:20px}
 .home-actions{display:flex;flex-wrap:wrap;gap:12px}
-.install-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.install-actions .secondary,.install-actions .primary{min-height:46px;font-size:12px;padding:0 16px}.install-badge{display:inline-flex;align-items:center;gap:7px;margin-top:10px;font-size:10px;color:#a9a69e}
 
-.primary,.secondary{min-height:50px;text-decoration:none;padding:0 24px;border-radius:14px;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;transition:all .2s cubic-bezier(0.3,0,0.4,1);position:relative}
+.primary,.secondary{min-height:50px;padding:0 24px;border-radius:14px;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;transition:all .2s cubic-bezier(0.3,0,0.4,1);position:relative}
 .primary{background:linear-gradient(135deg,#f2d693,#b8893f);color:#16120b;box-shadow:0 6px 20px rgba(185,137,63,.35),inset 0 1px 0 rgba(255,255,255,.5);border:1px solid #9a7332}
 .primary:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(185,137,63,.5),inset 0 1px 0 rgba(255,255,255,.7)}
 .primary:active{transform:translateY(1px);box-shadow:0 2px 8px rgba(185,137,63,.3)}
@@ -190,13 +186,7 @@ button{font:inherit;color:inherit;border:0}
         <div class="home-actions">
           <button class="primary" id="newGameBtn">♟ New Game</button>
           <button class="secondary" id="continueBtn" style="display:none">▶ Continue</button>
-          <a class="secondary" id="mindGamesBtn" href="https://multigameweb.github.io/Game-Zone/" target="_blank" rel="noopener">🧠 Play More Mind Games</a>
         </div>
-        <div class="install-actions">
-          <button class="secondary" id="installBtn">⬇ Install App</button>
-          <button class="secondary" id="homeScreenBtn">⌂ Add to Home Screen</button>
-        </div>
-        <div class="install-badge">📱 Install Royal Gambit for a full-screen app experience.</div>
       </div>
       <div class="preview-wrap">
         <div class="mini-board"><div id="miniSquares" class="mini-squares"></div></div>
@@ -232,7 +222,7 @@ button{font:inherit;color:inherit;border:0}
             <li><strong>Easy:</strong> Quick, beginner-friendly play. Makes simpler choices and occasional random moves.</li>
             <li><strong>Medium:</strong> More consistent tactical decisions and deeper search than Easy.</li>
             <li><strong>Hard:</strong> Stronger tactical search and more careful move selection.</li>
-            <li><strong>Grandmaster:</strong> The strongest available mode in this game, using deeper tactical search, quiescence search, positional evaluation, and anti-repetition move selection.</li>
+            <li><strong>Grandmaster:</strong> The strongest available mode in this game, using the deepest search budget. It is intended to be very challenging.</li>
             <li><strong>2 Player:</strong> No AI difficulty is used. Both sides are human players sharing the same device.</li>
           </ul>
         </div>
@@ -278,7 +268,7 @@ button{font:inherit;color:inherit;border:0}
       </details>
     </div>
 
-    
+    <div class="install-note">📱 <b>App tip:</b> Use browser menu (<b>⋮</b>) to <b>Add to Home Screen</b> for full-screen immersive play.</div>
   </section>
 
   <!-- GAME SCREEN -->
@@ -352,7 +342,7 @@ const state={
   sound:true, volume:.5,
   orientation:0, theme:"classic", viewMode:"3d",
   history:[], moveLog:[], gameOver:false, stats:loadStats(), pendingPromotion:null,
-  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null, aiStartHandle:null, aiSearchHandle:null
+  aiThinking:false, aiTurnId:0, aiTimeoutHandle:null, aiStartHandle:null, aiWorker:null, aiWorkerUrl:null
 };
 
 function loadStats(){
@@ -622,7 +612,6 @@ function performMove(move,promotion){
   state.aiTurnId++;
   if(state.aiTimeoutHandle) { clearTimeout(state.aiTimeoutHandle); state.aiTimeoutHandle=null; }
   if(state.aiStartHandle) { clearTimeout(state.aiStartHandle); state.aiStartHandle=null; }
-  if(state.aiSearchHandle) { clearTimeout(state.aiSearchHandle); state.aiSearchHandle=null; }
 
   const before=cloneBoard(state.board);
   const p=state.board[move.from[0]][move.from[1]];
@@ -750,9 +739,9 @@ function isFiftyMoveRule(){
 function endGame(title,reason){
   stopTimer();
   state.aiTurnId++;
+  cancelAIWorker();
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
   if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
-  if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
   const playerWon=(state.mode==="ai"&&title==="WHITE WINS");
   state.stats.games++;
   if(title==="DRAW"){state.stats.draws++;state.stats.streak=0}
@@ -766,15 +755,6 @@ function showResult(title,reason){
   openModal(`<div class="result"><div class="trophy">${title==="DRAW"?"♜":"♛"}</div><div class="eyebrow">${reason.toUpperCase()}</div><h2>${title}</h2><div class="sub">${state.moveLog.length} half-moves played</div><div class="modal-actions" style="width:100%;margin-top:16px"><button class="primary" id="rematch">↻ Rematch</button><button class="secondary" id="toHome">⌂ Home</button></div></div>`);
   document.getElementById("rematch").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)}
   document.getElementById("toHome").onclick=()=>{closeModal();showScreen("home")}
-}
-
-function showInstallHelp(){
-  openModal(`<h3>Install Royal Gambit</h3>
-  <p><b>Android / Chrome:</b> Tap <b>Install App</b> when the browser offers the install prompt. If no prompt appears, open <b>⋮ Menu → Add to Home screen / Install app</b>.</p>
-  <p><b>iPhone / iPad:</b> Tap <b>Share</b> in Safari → <b>Add to Home Screen</b>.</p>
-  <p class="small">For the browser's native install option to appear, the app must be served over HTTPS and the PWA manifest + service worker files must be present beside this page.</p>
-  <div class="modal-actions"><button class="primary" id="closeInstallHelp">Done</button></div>`);
-  document.getElementById('closeInstallHelp').onclick=closeModal;
 }
 
 function showScreen(id){
@@ -813,12 +793,17 @@ function chooseMode(){
   document.getElementById("confirmStart").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty)};
 }
 
+function cancelAIWorker(){
+  if(state.aiWorker){try{state.aiWorker.terminate()}catch(e){} state.aiWorker=null;}
+  if(state.aiWorkerUrl){try{URL.revokeObjectURL(state.aiWorkerUrl)}catch(e){} state.aiWorkerUrl=null;}
+}
+
 function startNewGame(mode="ai",difficulty="Medium"){
   stopTimer();
   state.aiTurnId++;
+  cancelAIWorker();
   if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
   if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
-  if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
   state.board=START.map(r=>r.split(""));state.turn="w";state.selected=null;state.legal=[];state.last=null;state.history=[];state.moveLog=[];
   state.mode=mode;state.difficulty=difficulty;state.pendingPromotion=null;state.gameOver=false;state.aiThinking=false;
   state.seconds={w:15,b:15};state.timeouts={w:0,b:0};
@@ -843,45 +828,45 @@ function updatePlayers(){
 /* 2 & 3. PRECISE EXACT-ZERO TIMESTAMP TIMER ARCHITECTURE */
 function startTimer(){
   stopTimer();
-  state.turnStartTimestamp = performance.now();
+  // Use a simple tick-based clock on the UI thread. AI search runs in a Web Worker,
+  // so this interval stays responsive even while Hard/Grandmaster is calculating.
+  state.turnStartTimestamp=performance.now();
   updatePlayers();
-
   state.timerId=setInterval(()=>{
-    if(state.gameOver) return;
+    if(state.gameOver)return;
 
-    const elapsed = (performance.now() - state.turnStartTimestamp) / 1000;
-    let left = Math.ceil(15 - elapsed);
-    if(left < 0) left = 0;
+    const active=state.turn;
+    const current=Math.max(0,Number(state.seconds[active])||15);
 
-    state.seconds[state.turn] = left;
-
-    // AI must never lose because its search is still running.
-    // Its clock remains visible and counts down to 0 while the AI thinks.
-    if(left <= 0 && state.mode === "ai" && state.turn === "b") {
-      state.seconds[state.turn] = 0;
+    // Every 1 second of the active player's turn removes exactly one visible second.
+    if(current>0){
+      state.seconds[active]=current-1;
       updatePlayers();
+    }
+
+    // AI has a visible 15-second thinking clock, but AI itself never loses on time.
+    // Once it reaches 0, leave it at 0 until the AI finishes its move.
+    if(state.mode==='ai' && active==='b'){
       saveGame();
       return;
     }
 
-    if(left <= 0){
-      state.timeouts[state.turn]++;
-      playSound("capture");
-
-      if(state.timeouts[state.turn] >= 5){
-        state.gameOver = true;
+    if(state.seconds[active] <= 0){
+      state.timeouts[active]++;
+      playSound('capture');
+      if(state.timeouts[active]>=5){
+        state.gameOver=true;
         stopTimer();
-        const winner = state.turn === "w" ? "BLACK WINS" : "WHITE WINS";
-        endGame(winner, "Time-out limit reached (5 times)");
+        const winner=active==='w'?'BLACK WINS':'WHITE WINS';
+        endGame(winner,'Time-out limit reached (5 times)');
         return;
       }
-
-      state.seconds[state.turn] = 15;
-      state.turnStartTimestamp = performance.now();
+      state.seconds[active]=15;
+      state.turnStartTimestamp=performance.now();
+      updatePlayers();
     }
-    updatePlayers();
     saveGame();
-  }, 100);
+  },1000);
 }
 function stopTimer(){
   if(state.timerId){clearInterval(state.timerId);state.timerId=null}
@@ -904,9 +889,9 @@ function openMenu(){
     closeModal();
     stopTimer();
     state.aiTurnId++;
+    cancelAIWorker();
     if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
     if(state.aiStartHandle){clearTimeout(state.aiStartHandle);state.aiStartHandle=null;}
-    if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
     showScreen("home");
   }
 }
@@ -998,31 +983,241 @@ function showSettings(){
    Hard / Grandmaster: iterative deepening + alpha-beta +
    quiescence + transposition table + positional evaluation.
    ========================================================== */
-function simplePositionKey(b,turn){
-  return b.map(r=>r.join('')).join('/')+'|'+turn;
+const AI_CFG={Easy:{time:350,depth:1,q:1},Medium:{time:3200,depth:4,q:3},Hard:{time:7500,depth:6,q:4},Grandmaster:{time:10000,depth:7,q:5}};
+
+function buildAIWorkerSource(){const el=document.getElementById("aiWorkerSource");return el?el.textContent:"";}
+
+function aiMove(){
+  if(state.gameOver||state.mode!=="ai"||state.turn!=="b")return;
+  cancelAIWorker();
+  const turnId=++state.aiTurnId;
+  state.aiThinking=true;
+  document.getElementById("boardHint").textContent=`${state.difficulty} AI is calculating…`;
+  const cfg=AI_CFG[state.difficulty]||AI_CFG.Medium;
+  const moves=legalMovesFor("b");
+  if(!moves.length){state.aiThinking=false;return;}
+  const fallback=moves[Math.floor(Math.random()*moves.length)];
+  const blob=new Blob([buildAIWorkerSource()],{type:"application/javascript"});
+  state.aiWorkerUrl=URL.createObjectURL(blob);
+  state.aiWorker=new Worker(state.aiWorkerUrl);
+  const worker=state.aiWorker;
+  worker.onmessage=e=>{
+    if(state.aiTurnId!==turnId||state.gameOver)return;
+    const move=e.data&&e.data.move?e.data.move:fallback;
+    cancelAIWorker();
+    if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+    state.aiThinking=false;
+    document.getElementById("boardHint").textContent="Tap a piece, then tap destination.";
+    executeAIMoveSafely(move);
+  };
+  worker.onerror=()=>{
+    if(state.aiTurnId!==turnId||state.gameOver)return;
+    cancelAIWorker();
+    if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
+    state.aiThinking=false;
+    document.getElementById("boardHint").textContent="Tap a piece, then tap destination.";
+    executeAIMoveSafely(fallback);
+  };
+  state.aiTimeoutHandle=setTimeout(()=>{
+    if(state.aiTurnId===turnId&&state.aiThinking){
+      state.aiThinking=false;cancelAIWorker();
+      document.getElementById("boardHint").textContent="Tap a piece, then tap destination.";
+      executeAIMoveSafely(fallback);
+    }
+  },Math.min(cfg.time+1400,14500));
+  worker.postMessage({board:state.board,turn:"b",last:state.last,history:state.history,moves,depth:cfg.depth,time:cfg.time,q:cfg.q,difficulty:state.difficulty});
 }
-function countSeenPosition(b,turn){
-  let count=0;
-  if(simplePositionKey(b,turn)===simplePositionKey(state.board,state.turn)) count++;
-  for(let i=0;i<state.history.length;i++){
-    const h=state.history[i];
-    if(simplePositionKey(h.board,h.turn)===simplePositionKey(b,turn)) count++;
+
+function executeAIMoveSafely(move){
+  if(state.gameOver||state.turn!=="b")return;
+  if(typeOf(state.board[move.from[0]][move.from[1]])==="p"&&(move.to[0]===0||move.to[0]===7))performMove(move,"q");
+  else performMove(move);
+}
+
+let audioCtx=null;
+function playSound(kind){
+  if(!state.sound)return;
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);
+    const f={move:320,capture:190,win:540,draw:250}[kind]||300;
+    o.frequency.value=f;o.type="sine";g.gain.value=.035*state.volume;o.start();
+    setTimeout(()=>o.frequency.value=f*(kind==="win"?1.5:.8),70);
+    setTimeout(()=>{g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.stop(audioCtx.currentTime+.13)},80);
+  }catch(e){}
+}
+
+function buildMini(){
+  const m=document.getElementById("miniSquares");m.innerHTML="";
+  START.join("").split("").forEach(p=>{const s=document.createElement("div");s.className="ms";if(p!=="."){s.textContent=PIECES[colorOf(p)][typeOf(p)];s.classList.add(colorOf(p)==="w"?"white":"black")}m.appendChild(s)})
+}
+
+function init(){
+  buildMini();
+  if(hasSave()){document.getElementById("continueBtn").style.display="inline-block"}
+  document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;chooseMode()});
+  document.getElementById("newGameBtn").onclick=chooseMode;
+  document.getElementById("continueBtn").onclick=()=>{if(loadGame()){showScreen("game");applyThemeSettings();renderBoard();startTimer();}};
+  document.getElementById("homeSettings").onclick=showSettings;
+  document.getElementById("themesBtn").onclick=showThemes;
+  document.getElementById("statsBtn").onclick=showStats;
+  document.getElementById("gameMenu").onclick=openMenu;
+  document.getElementById("rotateBtn").onclick=()=>{rotateView();document.getElementById("rotateBtn").textContent="⟳ Flip Board"};
+  document.getElementById("soundBtn").onclick=()=>{state.sound=!state.sound;document.getElementById("soundBtn").textContent=state.sound?"🔊 Sound":"🔇 Sound"};
+}
+
+init();
+</script>
+<script type="text/plain" id="aiWorkerSource">
+// Royal Gambit AI worker: keeps AI search off the UI thread so the clocks remain live.
+const FILES="abcdefgh";
+const state={board:null,turn:"b",last:null,history:[],difficulty:"Medium",aiTurnId:0,aiTimeoutHandle:null};
+function cloneBoard(b){return b.map(r=>r.slice())}
+function colorOf(p){if(p===".")return null;return p===p.toUpperCase()?"w":"b"}
+function typeOf(p){return p.toLowerCase()}
+function inside(r,c){return r>=0&&r<8&&c>=0&&c<8}
+function squareName(r,c){return FILES[c]+(8-r)}
+function findKing(b,col){
+  const target=col==="w"?"K":"k";
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(b[r][c]===target)return [r,c];
+  return null
+}
+
+function isSquareAttacked(b,r,c,by){
+  const pawn=by==="w"?"P":"p";
+  const pr=by==="w"?r+1:r-1;
+  for(const dc of [-1,1]) if(inside(pr,c+dc)&&b[pr][c+dc]===pawn)return true;
+  const n=by==="w"?"N":"n";
+  for(const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]])
+    if(inside(r+dr,c+dc)&&b[r+dr][c+dc]===n)return true;
+  const k=by==="w"?"K":"k";
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&inside(r+dr,c+dc)&&b[r+dr][c+dc]===k)return true;
+  const rays=[
+    [[1,0],[-1,0],[0,1],[0,-1],["r","q"]],
+    [[1,1],[1,-1],[-1,1],[-1,-1],["b","q"]]
+  ];
+  for(const group of rays){
+    const dirs=group.slice(0,4),types=group[4];
+    for(const [dr,dc] of dirs){
+      let rr=r+dr,cc=c+dc;
+      while(inside(rr,cc)){
+        const p=b[rr][cc];
+        if(p!=="."){
+          if(colorOf(p)===by&&types.includes(typeOf(p)))return true;
+          break;
+        }
+        rr+=dr;cc+=dc;
+      }
+    }
   }
-  return count;
+  return false;
 }
-function isRepeatingAIMove(m){
-  const nb=applyMove(state.board,m);
-  const nextTurn='w';
-  return countSeenPosition(nb,nextTurn)>=1;
+
+function inCheck(b,col){
+  const k=findKing(b,col); if(!k)return true;
+  return isSquareAttacked(b,k[0],k[1],col==="w"?"b":"w");
 }
-function repetitionRiskScore(m){
-  const nb=applyMove(state.board,m);
-  const nextTurn='w';
-  const seen=countSeenPosition(nb,nextTurn);
-  if(seen>=2) return -120000;
-  if(seen===1) return -45000;
-  return 0;
+
+function pseudoMoves(b,r,c,meta){
+  const p=b[r][c], col=colorOf(p), t=typeOf(p); if(!col)return [];
+  const out=[];
+  const add=(rr,cc,extra={})=>{
+    if(!inside(rr,cc))return false;
+    const q=b[rr][cc];
+    if(q!=="."&&colorOf(q)===col)return false;
+    out.push({from:[r,c],to:[rr,cc],...extra,capture:q!=="."});
+    return q===".";
+  };
+  if(t==="p"){
+    const dir=col==="w"?-1:1, start=col==="w"?6:1;
+    if(inside(r+dir,c)&&b[r+dir][c]==="."){
+      add(r+dir,c, (r+dir===0||r+dir===7)?{promotion:"q"}:{});
+      if(r===start&&b[r+2*dir][c]===".")add(r+2*dir,c,{double:true});
+    }
+    for(const dc of [-1,1]){
+      const rr=r+dir,cc=c+dc;
+      if(!inside(rr,cc))continue;
+      const q=b[rr][cc];
+      if(q!=="."&&colorOf(q)!==col){
+        add(rr,cc, (rr===0||rr===7)?{promotion:"q"}:{});
+      }else if(meta&&meta.enPassant&&meta.enPassant[0]===rr&&meta.enPassant[1]===cc){
+        add(rr,cc,{enPassant:true,capture:true});
+      }
+    }
+  }else if(t==="n"){
+    for(const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]])add(r+dr,c+dc);
+  }else if(t==="b"||t==="r"||t==="q"){
+    const dirs=[];
+    if(t==="b"||t==="q")dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
+    if(t==="r"||t==="q")dirs.push([1,0],[-1,0],[0,1],[0,-1]);
+    for(const [dr,dc] of dirs){
+      let rr=r+dr,cc=c+dc;
+      while(inside(rr,cc)){
+        const cont=add(rr,cc); if(!cont)break; rr+=dr;cc+=dc;
+      }
+    }
+  }else if(t==="k"){
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(dr||dc)add(r+dr,c+dc);
+    if(meta&&meta.castling){
+      const canW=col==="w", home=canW?7:0, enemy=canW?"b":"w";
+      if(r===home&&c===4){
+        if(meta.castling[col+"K"] && b[home][5]==="."&&b[home][6]==="."&&
+           !isSquareAttacked(b,home,4,enemy)&&!isSquareAttacked(b,home,5,enemy)&&!isSquareAttacked(b,home,6,enemy) &&
+           b[home][7]===(canW?"R":"r")) add(home,6,{castle:"K"});
+        if(meta.castling[col+"Q"] && b[home][1]==="."&&b[home][2]==="."&&b[home][3]==="."&&
+           !isSquareAttacked(b,home,4,enemy)&&!isSquareAttacked(b,home,3,enemy)&&!isSquareAttacked(b,home,2,enemy) &&
+           b[home][0]===(canW?"R":"r")) add(home,2,{castle:"Q"});
+      }
+    }
+  }
+  return out;
 }
+
+function getMeta(){
+  const rights={wK:true,wQ:true,bK:true,bQ:true};
+  for(const m of state.history){
+    const p=m.p;
+    if(p==="K"){rights.wK=false;rights.wQ=false}
+    if(p==="k"){rights.bK=false;rights.bQ=false}
+    if(p==="R"&&m.from[0]===7){if(m.from[1]===0)rights.wQ=false;if(m.from[1]===7)rights.wK=false}
+    if(p==="r"&&m.from[0]===0){if(m.from[1]===0)rights.bQ=false;if(m.from[1]===7)rights.bK=false}
+    const captured=m.captured;
+    if(captured==="R"&&m.to[0]===7){if(m.to[1]===0)rights.wQ=false;if(m.to[1]===7)rights.wK=false}
+    if(captured==="r"&&m.to[0]===0){if(m.to[1]===0)rights.bQ=false;if(m.to[1]===7)rights.bK=false}
+  }
+  let enPassant=null;
+  const last=state.last;
+  if(last&&last.double) enPassant=[(last.from[0]+last.to[0])/2,last.to[1]];
+  return {castling:rights,enPassant};
+}
+
+function applyMove(b,m,promotion=null){
+  const nb=cloneBoard(b), [fr,fc]=m.from,[tr,tc]=m.to,p=nb[fr][fc];
+  nb[fr][fc]=".";
+  if(m.enPassant){nb[fr][tc]="."}
+  if(m.castle==="K"){nb[tr][tc]=p;nb[tr][5]=nb[tr][7];nb[tr][7]="."}
+  else if(m.castle==="Q"){nb[tr][tc]=p;nb[tr][3]=nb[tr][0];nb[tr][0]="."}
+  else{
+    const prom=promotion||(m.promotion?m.promotion:null);
+    nb[tr][tc]=prom?(colorOf(p)==="w"?prom.toUpperCase():prom.toLowerCase()):p;
+  }
+  return nb;
+}
+
+function legalMovesFor(col){
+  const meta=getMeta(), all=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    if(colorOf(state.board[r][c])!==col)continue;
+    const moves=pseudoMoves(state.board,r,c,meta);
+    for(const m of moves){
+      const nb=applyMove(state.board,m);
+      if(!inCheck(nb,col))all.push({...m,p:state.board[r][c],captured:m.enPassant?state.board[m.from[0]][m.to[1]]:state.board[m.to[0]][m.to[1]]});
+    }
+  }
+  return all;
+}
+function movesForSquare(r,c){return legalMovesFor(state.turn).filter(m=>m.from[0]===r&&m.from[1]===c)}
+
 const AI_CFG={
   Easy:{time:350,depth:1,q:1},
   Medium:{time:1400,depth:3,q:2},
@@ -1077,7 +1272,6 @@ function moveScore(m,b,ply,ttMove){
   const ks=aiKiller[ply]||[];
   if(ks.includes(mk))s+=30000;
   s+=(aiHistoryHeur[mk]||0);
-  if(colorOf(b[m.from[0]][m.from[1]])==='b') s+=repetitionRiskScore(m);
   return s;
 }
 function orderedMoves(b,moves,ply,ttMove){
@@ -1089,6 +1283,9 @@ function clearAIHash(){
 
 function evalPosition(b){
   let score=0, whiteB=0, blackB=0, whitePawns=[], blackPawns=[];
+  // Strong material weighting keeps obvious wins (especially queen/rook captures)
+  // from being ignored by shallow positional noise.
+
   for(let r=0;r<8;r++)for(let c=0;c<8;c++){
     const p=b[r][c]; if(p==='.')continue;
     const t=typeOf(p), col=colorOf(p);
@@ -1144,6 +1341,26 @@ function evalPosition(b){
     return v;
   };
   score+=kingSafety('b')-kingSafety('w');
+
+  // Mobility bonus: reward the side with more useful legal choices.
+  // Keep it small so material/tactics dominate.
+  const oldBoard=state.board;
+  state.board=b;
+  const bm=legalMovesFor('b').length;
+  const wm=legalMovesFor('w').length;
+  state.board=oldBoard;
+  score+=(bm-wm)*4;
+
+  // Immediate tactical pressure: attacked high-value pieces are slightly penalized.
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const p=b[r][c]; if(p==='.')continue;
+    const enemy=colorOf(p)==='b'?'w':'b';
+    if(isSquareAttacked(b,r,c,enemy)){
+      const t=typeOf(p);
+      const penalty={q:35,r:22,b:12,n:12,p:4,k:0}[t]||0;
+      score+=(colorOf(p)==='b'?-penalty:penalty);
+    }
+  }
   return score;
 }
 
@@ -1225,179 +1442,42 @@ function minimaxAlphaBeta(b,depth,alpha,beta,turn,startTime,timeLimit,turnId,qDe
   return best;
 }
 
-function getBestMoveIterativeAsync(moves,targetDepth,startTime,timeLimit,turnId,qDepth,done){
+function getBestMoveIterative(moves,targetDepth,startTime,timeLimit,turnId){
   let bestMove=moves[0];
-  let depth=1;
-  let rootMoves=[];
-  let rootIndex=0;
-  let bestForDepth=bestMove;
-  let bestScore=-Infinity;
-
-  const finish=()=>{
-    if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
-    done(bestMove);
-  };
-
-  const step=()=>{
-    state.aiSearchHandle=null;
-    if(state.gameOver || state.aiTurnId!==turnId){return;}
-
-    const elapsed=performance.now()-startTime;
-    if(depth>targetDepth || elapsed>=timeLimit){
-      finish();
-      return;
+  for(let depth=1;depth<=targetDepth;depth++){
+    if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId)break;
+    let bestForDepth=bestMove,bestScore=-Infinity,completed=true;
+    const rootMoves=orderedMoves(state.board,moves,0,aiTT.get(boardKey(state.board,'b'))?.best||null);
+    for(const m of rootMoves){
+      if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId){completed=false;break;}
+      const score=minimaxAlphaBeta(applyMove(state.board,m),depth-1,-Infinity,Infinity,'w',startTime,timeLimit,turnId,AI_CFG[state.difficulty]?.q||3,1);
+      // Tactical tie-break: clearly profitable captures/checks get a small lift,
+      // preventing Medium from overlooking an obvious free piece.
+      let tacticalBonus=0;
+      if(isCaptureMove(m)){
+        const victim=typeOf(m.captured||'p');
+        const attacker=typeOf(state.board[m.from[0]][m.from[1]]);
+        tacticalBonus+=(VAL[victim]||0)-(VAL[attacker]||0)*0.05;
+      }
+      if(m.to[0]===0||m.to[0]===7) tacticalBonus+=80;
+      const rankedScore=score+tacticalBonus*0.12;
+      if(rankedScore>bestScore){bestScore=rankedScore;bestForDepth=m}
     }
-
-    // Begin a new depth. Work is split by root move so the browser can
-    // repaint the board and update the visible clock between searches.
-    if(rootIndex===0){
-      const ttRoot=aiTT.get(boardKey(state.board,'b'))?.best||null;
-      rootMoves=orderedMoves(state.board,moves,0,ttRoot);
-      const nonRepeating=rootMoves.filter(m=>!isRepeatingAIMove(m));
-      if(nonRepeating.length)rootMoves=nonRepeating;
-      bestForDepth=bestMove;
-      bestScore=-Infinity;
-    }
-
-    if(rootIndex>=rootMoves.length){
-      // Only accept a fully completed depth.
-      bestMove=bestForDepth;
-      depth++;
-      rootIndex=0;
-      state.aiSearchHandle=setTimeout(step,0);
-      return;
-    }
-
-    if(performance.now()-startTime>=timeLimit){
-      finish();
-      return;
-    }
-
-    const m=rootMoves[rootIndex++];
-    let score=-Infinity;
-    try{
-      score=minimaxAlphaBeta(
-        applyMove(state.board,m),
-        depth-1,-Infinity,Infinity,'w',
-        startTime,timeLimit,turnId,qDepth,1
-      );
-    }catch(e){}
-
-    // If this root search consumed the remaining budget, do not promote
-    // the incomplete depth; keep the best move from the previous depth.
-    if(performance.now()-startTime>=timeLimit){
-      finish();
-      return;
-    }
-
-    if(score>bestScore){bestScore=score;bestForDepth=m;}
-    state.aiSearchHandle=setTimeout(step,0);
-  };
-
-  step();
+    if(completed){bestMove=bestForDepth;}
+  }
+  return bestMove;
 }
 
-function aiMove(){
-  if(state.gameOver||state.mode!=="ai"||state.turn!=="b")return;
-  const currentAiTurnId=++state.aiTurnId;
-  state.aiThinking=true;
-  document.getElementById('boardHint').textContent=`${state.difficulty} AI is calculating…`;
-  const moves=legalMovesFor('b');
-  if(!moves.length){state.aiThinking=false;return;}
-  const cfg=AI_CFG[state.difficulty]||AI_CFG.Medium;
+
+self.onmessage=function(e){
+  const d=e.data||{};
+  state.board=d.board; state.turn=d.turn||"b"; state.last=d.last||null; state.history=d.history||[]; state.difficulty=d.difficulty||"Medium";
+  const moves=d.moves&&d.moves.length?d.moves:legalMovesFor("b");
   const startTime=performance.now();
   clearAIHash();
-  let chosenMove=moves[0];
-
-  if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
-  if(state.aiTimeoutHandle)clearTimeout(state.aiTimeoutHandle);
-
-  // Absolute safety fallback. This is deliberately outside the chess clock:
-  // AI never loses on time, even if the browser temporarily stalls.
-  state.aiTimeoutHandle=setTimeout(()=>{
-    if(state.aiThinking&&state.aiTurnId===currentAiTurnId){
-      state.aiThinking=false;
-      if(state.aiSearchHandle){clearTimeout(state.aiSearchHandle);state.aiSearchHandle=null;}
-      document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
-      executeAIMoveSafely(chosenMove);
-    }
-  },cfg.time+1200);
-
-  getBestMoveIterativeAsync(moves,cfg.depth,startTime,cfg.time,currentAiTurnId,cfg.q,(move)=>{
-    if(state.aiTurnId!==currentAiTurnId||state.gameOver)return;
-    chosenMove=move||chosenMove;
-    if(state.aiTimeoutHandle){clearTimeout(state.aiTimeoutHandle);state.aiTimeoutHandle=null;}
-    state.aiThinking=false;
-    document.getElementById('boardHint').textContent='Tap a piece, then tap destination.';
-    executeAIMoveSafely(chosenMove);
-  });
-}
-
-function executeAIMoveSafely(move){
-  if(state.gameOver||state.turn!=='b')return;
-  if(typeOf(state.board[move.from[0]][move.from[1]])==='p'&&(move.to[0]===0||move.to[0]===7))performMove(move,'q');
-  else performMove(move);
-}
-
-let audioCtx=null;
-function playSound(kind){
-  if(!state.sound)return;
-  try{
-    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
-    const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);
-    const f={move:320,capture:190,win:540,draw:250}[kind]||300;
-    o.frequency.value=f;o.type="sine";g.gain.value=.035*state.volume;o.start();
-    setTimeout(()=>o.frequency.value=f*(kind==="win"?1.5:.8),70);
-    setTimeout(()=>{g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.stop(audioCtx.currentTime+.13)},80);
-  }catch(e){}
-}
-
-function buildMini(){
-  const m=document.getElementById("miniSquares");m.innerHTML="";
-  START.join("").split("").forEach(p=>{const s=document.createElement("div");s.className="ms";if(p!=="."){s.textContent=PIECES[colorOf(p)][typeOf(p)];s.classList.add(colorOf(p)==="w"?"white":"black")}m.appendChild(s)})
-}
-
-function init(){
-  buildMini();
-  if(hasSave()){document.getElementById("continueBtn").style.display="inline-block"}
-  document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;chooseMode()});
-  document.getElementById("newGameBtn").onclick=chooseMode;
-  document.getElementById("continueBtn").onclick=()=>{if(loadGame()){showScreen("game");applyThemeSettings();renderBoard();startTimer();}};
-  document.getElementById("homeSettings").onclick=showSettings;
-  document.getElementById("themesBtn").onclick=showThemes;
-  document.getElementById("installBtn").onclick=()=>{
-    if(state.installPromptEvent){
-      const ev=state.installPromptEvent;
-      state.installPromptEvent=null;
-      ev.prompt();
-      ev.userChoice.finally(()=>{updateInstallButton();});
-    }else{showInstallHelp();}
-  };
-  document.getElementById("homeScreenBtn").onclick=showInstallHelp;
-  document.getElementById("statsBtn").onclick=showStats;
-  document.getElementById("gameMenu").onclick=openMenu;
-  document.getElementById("rotateBtn").onclick=()=>{rotateView();document.getElementById("rotateBtn").textContent="⟳ Flip Board"};
-  document.getElementById("soundBtn").onclick=()=>{state.sound=!state.sound;document.getElementById("soundBtn").textContent=state.sound?"🔊 Sound":"🔇 Sound"};
-}
-
-function updateInstallButton(){
-  const btn=document.getElementById('installBtn');
-  if(!btn)return;
-  const standalone=window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-  if(standalone || window.navigator.standalone){
-    btn.textContent='✓ App Installed';
-    btn.disabled=true;
-    btn.style.opacity='.65';
-  }else{
-    btn.textContent=state.installPromptEvent?'⬇ Install App':'⬇ Install App';
-    btn.disabled=false;
-  }
-}
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPromptEvent=e;updateInstallButton();});
-window.addEventListener('appinstalled',()=>{state.installPromptEvent=null;updateInstallButton();});
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
-updateInstallButton();
-init();
+  const best=getBestMoveIterative(moves,d.depth||3,startTime,d.time||1000,0);
+  self.postMessage({move:best});
+};
 
 </script>
 </body>
