@@ -1,11 +1,3 @@
-Here is the completely updated, bug-free, and clean version of your Royal
-Gambit 3D Chess game.
-
-I have fixed the critical openPromotion() crash bug, integrated the promotion
-choice modal smoothly into the game flow, and cleaned up minor script
-references. You can save this directly as index.html and run it locally or
-deploy it on GitHub Pages.
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -18,107 +10,107 @@ deploy it on GitHub Pages.
 <title>Royal Gambit — 3D Chess</title>
 <style>
 :root{
-  --bg:#08090c;--panel:rgba(19,21,27,.86);--panel2:rgba(27,29,37,.76);
+  --bg:#08090c;--panel:rgba(19,21,27,.92);--panel2:rgba(27,29,37,.86);
   --gold:#d7ad62;--gold2:#f4d895;--text:#f5f2ea;--muted:#a8a7a1;
-  --light:#e5d6b7;--dark:#6e4e32;--light2:#d8d9dc;--dark2:#4b4f58;
-  --radius:22px;--safe-top:env(safe-area-inset-top);--safe-bottom:env(safe-area-inset-bottom)
+  --light:#e5d6b7;--dark:#6e4e32;--radius:22px;
+  --safe-top:env(safe-area-inset-top);--safe-bottom:env(safe-area-inset-bottom)
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:radial-gradient(circle at 50% 10%,#1a1820 0,#0b0b0f 35%,#050609 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 body{touch-action:none}
 button{font:inherit;color:inherit;border:0}
-.app{position:relative;width:100%;height:100dvh;min-height:560px;overflow:hidden}
+.app{position:relative;width:100%;height:100dvh;min-height:540px;overflow:hidden}
 .bg-glow,.bg-glow2{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;opacity:.25}
 .bg-glow{width:45vw;height:45vw;left:-15vw;top:-15vw;background:#7a5325}
 .bg-glow2{width:50vw;height:50vw;right:-18vw;bottom:-20vw;background:#2c3c62}
-.screen{position:absolute;inset:0;display:none}
-.screen.active{display:block}
-.home{padding:calc(18px + var(--safe-top)) 16px calc(20px + var(--safe-bottom));overflow:auto}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:1200px;margin:0 auto}
+.screen{position:absolute;inset:0;display:none;overflow-y:auto}
+.screen.active{display:flex;flex-direction:column}
+.home{padding:calc(16px + var(--safe-top)) 16px calc(20px + var(--safe-bottom));max-width:1200px;margin:0 auto;width:100%}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
 .brand{display:flex;align-items:center;gap:10px}
 .crown{font-size:28px;filter:drop-shadow(0 4px 10px rgba(215,173,98,.4))}
 .brand h1{font-size:20px;letter-spacing:.12em;margin:0;font-weight:800}
 .brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.2em}
 .icon-btn{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.06);backdrop-filter:blur(10px);display:grid;place-items:center;border:1px solid rgba(255,255,255,.08);cursor:pointer}
 .icon-btn:active,.primary:active,.secondary:active,.mode-card:active{transform:scale(.98)}
-.hero{max-width:1200px;margin:14px auto 0;display:grid;grid-template-columns:1.05fr .95fr;gap:22px;align-items:center}
+.hero{margin:12px auto 0;display:grid;grid-template-columns:1.05fr .95fr;gap:20px;align-items:center;width:100%}
 .hero-copy{padding:10px 4px}
 .eyebrow{color:var(--gold2);font-size:11px;letter-spacing:.25em;font-weight:800}
-.hero h2{font-size:clamp(34px,5.6vw,68px);line-height:.98;margin:14px 0 16px;max-width:690px;letter-spacing:-.04em}
-.hero p{color:#b9b7b0;max-width:570px;font-size:16px;line-height:1.65;margin-bottom:22px}
+.hero h2{font-size:clamp(30px,5vw,56px);line-height:1.05;margin:12px 0 14px;letter-spacing:-.04em}
+.hero p{color:#b9b7b0;max-width:570px;font-size:15px;line-height:1.6;margin-bottom:20px}
 .home-actions{display:flex;flex-wrap:wrap;gap:12px}
-.primary,.secondary{min-height:52px;padding:0 20px;border-radius:16px;cursor:pointer;font-weight:800}
-.primary{background:linear-gradient(135deg,#f0d28d,#b8893f);color:#16120b;box-shadow:0 15px 34px rgba(185,137,63,.25)}
+.primary,.secondary{min-height:48px;padding:0 20px;border-radius:14px;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.primary{background:linear-gradient(135deg,#f0d28d,#b8893f);color:#16120b;box-shadow:0 10px 25px rgba(185,137,63,.25)}
 .secondary{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09)}
-.preview-wrap{position:relative;min-height:340px;display:grid;place-items:center}
-.mini-board{width:min(75vw,430px);aspect-ratio:1;transform:perspective(800px) rotateX(57deg) rotateZ(-3deg);border-radius:16px;padding:8px;background:linear-gradient(145deg,#785437,#2a180e);box-shadow:0 45px 80px rgba(0,0,0,.62),0 0 60px rgba(217,175,98,.1)}
+.preview-wrap{position:relative;min-height:280px;display:grid;place-items:center}
+.mini-board{width:min(70vw,340px);aspect-ratio:1;transform:perspective(800px) rotateX(50deg) rotateZ(-3deg);border-radius:16px;padding:8px;background:linear-gradient(145deg,#785437,#2a180e);box-shadow:0 35px 60px rgba(0,0,0,.62)}
 .mini-squares{display:grid;grid-template-columns:repeat(8,1fr);width:100%;height:100%;overflow:hidden;border-radius:10px}
-.ms{display:grid;place-items:center;font-size:clamp(18px,3vw,30px);text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.ms{display:grid;place-items:center;font-size:clamp(16px,2.5vw,26px)}
 .ms:nth-child(16n+1),.ms:nth-child(16n+3),.ms:nth-child(16n+6),.ms:nth-child(16n+8),.ms:nth-child(16n+9),.ms:nth-child(16n+11),.ms:nth-child(16n+14),.ms:nth-child(16n+16){background:#e7d4b0}
 .ms{background:#745132}
 .ms.white{color:#f7f4ed}.ms.black{color:#0c0c0e}
-.mini-label{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:8px 12px;border-radius:20px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);font-size:11px;letter-spacing:.14em;color:#d7d4cc;backdrop-filter:blur(8px)}
-.section-title{max-width:1200px;margin:24px auto 12px;font-size:14px;letter-spacing:.16em;color:#aaa79e;text-transform:uppercase}
-.mode-grid{max-width:1200px;margin:0 auto 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.mode-card{background:linear-gradient(180deg,rgba(35,37,45,.76),rgba(20,22,28,.86));border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:17px;text-align:left;cursor:pointer;min-height:115px;box-shadow:0 12px 25px rgba(0,0,0,.18)}
-.mode-card .emoji{font-size:25px}.mode-card strong{display:block;margin-top:10px}.mode-card span{color:#97968f;font-size:12px;display:block;margin-top:4px}
-.install-note{max-width:1200px;margin:0 auto;padding:13px 16px;border-radius:16px;background:rgba(215,173,98,.08);border:1px solid rgba(215,173,98,.18);color:#d8d1c1;font-size:12px;line-height:1.5}
-.game{padding:calc(10px + var(--safe-top)) 10px calc(12px + var(--safe-bottom));display:flex;flex-direction:column}
-.game-top{display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:1250px;width:100%;margin:0 auto}
-.player-card{flex:1;min-width:0;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06)}
+.mini-label{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);padding:6px 10px;border-radius:20px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);font-size:10px;letter-spacing:.14em;color:#d7d4cc}
+.section-title{margin:18px auto 10px;font-size:13px;letter-spacing:.16em;color:#aaa79e;text-transform:uppercase;width:100%;max-width:1200px}
+.mode-grid{width:100%;max-width:1200px;margin:0 auto 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mode-card{background:linear-gradient(180deg,rgba(35,37,45,.76),rgba(20,22,28,.86));border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:14px;text-align:left;cursor:pointer;min-height:100px}
+.mode-card .emoji{font-size:22px}.mode-card strong{display:block;margin-top:8px;font-size:14px}.mode-card span{color:#97968f;font-size:11px;display:block;margin-top:3px}
+.install-note{width:100%;max-width:1200px;margin:0 auto 10px;padding:12px 14px;border-radius:14px;background:rgba(215,173,98,.08);border:1px solid rgba(215,173,98,.18);color:#d8d1c1;font-size:11px;line-height:1.45}
+
+/* Game Screen Layout Optimized */
+.game{padding:calc(8px + var(--safe-top)) 10px calc(10px + var(--safe-bottom));display:flex;flex-direction:column;justify-content:space-between;height:100dvh}
+.game-top{display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:600px;width:100%;margin:0 auto}
+.player-card{flex:1;min-width:0;padding:8px 10px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06)}
 .player-card.current{border-color:rgba(215,173,98,.7);box-shadow:inset 0 0 0 1px rgba(215,173,98,.15)}
-.player-row{display:flex;justify-content:space-between;align-items:center;gap:6px}
-.player-name{font-weight:800;font-size:13px}.player-side{font-size:10px;color:#93918a;text-transform:uppercase;letter-spacing:.14em}
-.clock{font-variant-numeric:tabular-nums;font-size:24px;font-weight:900;letter-spacing:.03em;margin-top:3px}
+.player-row{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.player-name{font-weight:800;font-size:12px}.player-side{font-size:9px;color:#93918a;text-transform:uppercase;letter-spacing:.1em}
+.clock{font-variant-numeric:tabular-nums;font-size:20px;font-weight:900;margin-top:2px}
 .clock.low{color:#ff766c}
-.board-area{flex:1;min-height:0;display:grid;place-items:center;position:relative}
-.board-shell{position:relative;width:min(92vw,calc(86dvh - 150px),700px);aspect-ratio:1;perspective:1200px;touch-action:none}
-.board-tilt{position:absolute;inset:4%;transform-style:preserve-3d;transform:rotateX(52deg) rotateZ(0deg);transition:transform .25s ease;will-change:transform}
-.board-base{position:absolute;inset:-4%;border-radius:22px;background:linear-gradient(145deg,#885f3c,#3c2214);box-shadow:0 28px 45px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.15);transform:translateZ(-24px);border:1px solid rgba(255,255,255,.12)}
-.board{position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border-radius:14px;overflow:hidden;transform-style:preserve-3d;box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}
-.square{position:relative;display:grid;place-items:center;cursor:pointer;user-select:none}
+
+.board-area{flex:1;min-height:0;display:grid;place-items:center;position:relative;width:100%;padding:4px 0}
+.board-shell{position:relative;width:min(90vw,calc(72dvh - 120px),520px);aspect-ratio:1;perspective:1000px;touch-action:none}
+.board-tilt{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(42deg) rotateZ(0deg);transition:transform .25s ease;will-change:transform}
+.board-base{position:absolute;inset:-3%;border-radius:20px;background:linear-gradient(145deg,#885f3c,#3c2214);box-shadow:0 24px 40px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.15);transform:translateZ(-18px);border:1px solid rgba(255,255,255,.12)}
+.board{position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);border-radius:12px;overflow:hidden;transform-style:preserve-3d;box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}
+
+.square{position:relative;display:grid;place-items:center;cursor:pointer;user-select:none;width:100%;height:100%}
 .square.light{background:linear-gradient(145deg,#e7d7b9,#cfbd99)}
 .square.dark{background:linear-gradient(145deg,#765438,#614227)}
-.square::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.11),transparent 42%,rgba(0,0,0,.05));pointer-events:none}
-.square.selected{box-shadow:inset 0 0 0 4px rgba(245,213,145,.8);z-index:3}
-.square.last{box-shadow:inset 0 0 0 4px rgba(215,173,98,.35)}
-.square.move::before{content:"";width:22%;height:22%;border-radius:50%;background:rgba(46,27,15,.45);z-index:2}
-.square.capture::before{content:"";position:absolute;inset:9%;border-radius:50%;border:4px solid rgba(127,32,32,.6);z-index:2}
-.square.check{box-shadow:inset 0 0 0 5px rgba(255,69,64,.85),inset 0 0 28px rgba(255,55,55,.48)}
-.piece{position:relative;z-index:4;font-family:"Times New Roman",serif;font-size:clamp(30px,6vw,66px);line-height:1;transform:translateY(-8%);filter:drop-shadow(0 10px 7px rgba(0,0,0,.42));transition:transform .13s ease,filter .13s ease}
-.piece.white{color:#f8f6ef;text-shadow:0 2px 0 #c9c4b8,0 5px 8px rgba(0,0,0,.5)}
-.piece.black{color:#15171b;text-shadow:0 2px 0 #5d6067,0 5px 8px rgba(0,0,0,.6)}
-.square.selected .piece{transform:translateY(-15%) scale(1.06);filter:drop-shadow(0 14px 12px rgba(215,173,98,.55))}
-.coords{position:absolute;font-size:8px;font-weight:800;opacity:.56;z-index:1}.coord-r{left:4px;top:3px}.coord-f{right:4px;bottom:3px}
-.board-hint{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);padding:8px 12px;background:rgba(9,10,13,.74);border:1px solid rgba(255,255,255,.08);border-radius:14px;color:#d7d3ca;font-size:11px;backdrop-filter:blur(12px);white-space:nowrap}
-.game-controls{width:100%;max-width:1250px;margin:8px auto 0;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.control{min-height:46px;border-radius:14px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);font-weight:750;font-size:12px;cursor:pointer}
-.control.gold{background:rgba(215,173,98,.11);border-color:rgba(215,173,98,.22)}
-.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(9px);display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:20}
+.square::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent 40%,rgba(0,0,0,.04));pointer-events:none}
+.square.selected{box-shadow:inset 0 0 0 3px rgba(245,213,145,.9);z-index:3}
+.square.last{box-shadow:inset 0 0 0 3px rgba(215,173,98,.4)}
+.square.move::before{content:"";width:20%;height:20%;border-radius:50%;background:rgba(46,27,15,.5);z-index:2}
+.square.capture::before{content:"";position:absolute;inset:8%;border-radius:50%;border:3px solid rgba(127,32,32,.7);z-index:2}
+.square.check{box-shadow:inset 0 0 0 4px rgba(255,69,64,.9),inset 0 0 20px rgba(255,55,55,.4)}
+
+.piece{position:relative;z-index:4;font-family:"Times New Roman",serif;font-size:clamp(26px, 5.2vw, 48px);line-height:1;transform:translateY(-4%);filter:drop-shadow(0 6px 5px rgba(0,0,0,.4));transition:transform .12s ease}
+.piece.white{color:#f8f6ef;text-shadow:0 1px 0 #c9c4b8,0 3px 6px rgba(0,0,0,.5)}
+.piece.black{color:#15171b;text-shadow:0 1px 0 #5d6067,0 3px 6px rgba(0,0,0,.6)}
+.square.selected .piece{transform:translateY(-10%) scale(1.05)}
+
+.coords{position:absolute;font-size:7px;font-weight:800;opacity:.5;z-index:1}.coord-r{left:3px;top:2px}.coord-f{right:3px;bottom:2px}
+.board-hint{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);padding:5px 10px;background:rgba(9,10,13,.8);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#d7d3ca;font-size:10px;backdrop-filter:blur(8px);white-space:nowrap;z-index:5}
+
+.game-controls{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.control{min-height:42px;border-radius:12px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);font-weight:700;font-size:11px;cursor:pointer}
+.control.gold{background:rgba(215,173,98,.12);border-color:rgba(215,173,98,.25)}
+
+/* Modal System */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center;padding:10px;z-index:100}
 .modal-backdrop.show{display:flex}
-.modal{width:min(650px,100%);max-height:90dvh;overflow:auto;border-radius:24px;background:linear-gradient(180deg,#1a1c23,#111217);border:1px solid rgba(255,255,255,.09);padding:20px;box-shadow:0 35px 80px rgba(0,0,0,.55)}
-.modal h3{margin:0 0 12px;font-size:22px}.modal p{color:#aaa8a1;font-size:13px;line-height:1.6}
-.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
-.option-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.option{padding:13px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);cursor:pointer;text-align:left}.option.active{border-color:rgba(215,173,98,.65);background:rgba(215,173,98,.1)}
-.result{display:grid;place-items:center;text-align:center;min-height:290px}.result .trophy{font-size:54px}.result h2{font-size:34px;margin:10px 0}.result .sub{color:#9e9d97}
-.promo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:14px}.promo-btn{min-height:62px;border-radius:15px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-size:34px;cursor:pointer}
-.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{padding:14px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06)}.stat b{font-size:25px}.stat span{display:block;color:#8e8d87;font-size:11px;margin-top:4px}
-.range-row{display:flex;align-items:center;gap:10px;margin:12px 0}.range-row input{width:100%}
-.small{font-size:11px;color:#8e8c85}
-@media(max-width:820px){
+.modal{width:min(500px,100%);max-height:85dvh;overflow-y:auto;border-radius:22px;background:linear-gradient(180deg,#1c1e26,#121318);border:1px solid rgba(255,255,255,.1);padding:18px;box-shadow:0 25px 50px rgba(0,0,0,.6)}
+.modal h3{margin:0 0 10px;font-size:20px}.modal p{color:#aaa8a1;font-size:12px;line-height:1.5}
+.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.option-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.option{padding:11px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);cursor:pointer;text-align:left}.option.active{border-color:rgba(215,173,98,.65);background:rgba(215,173,98,.1)}
+.result{display:grid;place-items:center;text-align:center;min-height:240px}.result .trophy{font-size:46px}.result h2{font-size:28px;margin:8px 0}.result .sub{color:#9e9d97;font-size:12px}
+.promo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.promo-btn{min-height:54px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);font-size:28px;cursor:pointer}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.stat{padding:12px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06)}.stat b{font-size:22px}.stat span{display:block;color:#8e8d87;font-size:10px;margin-top:3px}
+.range-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;font-size:12px}
+.small{font-size:10px;color:#8e8c85}
+
+@media(max-width:768px){
   .hero{grid-template-columns:1fr}.hero-copy{text-align:center}.hero-copy p{margin-left:auto;margin-right:auto}.home-actions{justify-content:center}
-  .preview-wrap{min-height:290px;order:-1}.mini-board{width:min(79vw,360px)}
+  .preview-wrap{min-height:240px;order:-1}.mini-board{width:min(65vw,280px)}
   .mode-grid{grid-template-columns:repeat(2,1fr)}
-  .game-top{gap:6px}.player-card{padding:9px 10px}.clock{font-size:21px}
-}
-@media(max-width:520px){
-  .hero h2{font-size:38px}.hero p{font-size:14px}.mode-grid{grid-template-columns:1fr 1fr}.mode-card{min-height:104px}
-  .board-shell{width:min(97vw,calc(93dvh - 160px));}.board-tilt{transform:rotateX(48deg)}
-  .game-controls{grid-template-columns:repeat(5,1fr)}.control{padding:0 4px;font-size:10px}
-}
-@media(orientation:landscape) and (max-height:560px){
-  .game{padding-top:calc(5px + var(--safe-top));padding-bottom:calc(5px + var(--safe-bottom))}
-  .board-shell{width:min(68vh,720px)}.game-controls{margin-top:4px}.player-card{padding:6px 9px}.clock{font-size:19px}
 }
 </style>
 </head>
@@ -136,7 +128,7 @@ button{font:inherit;color:inherit;border:0}
       <div class="hero-copy">
         <div class="eyebrow">CINEMATIC CHESS EXPERIENCE</div>
         <h2>Play chess like a premium game.</h2>
-        <p>A mobile-first 3D chess experience with touch controls, cinematic motion, timers, local saves, AI levels and a polished game-room feel.</p>
+        <p>A mobile-first 3D chess experience with touch controls, motion tilt, timers, local saves, and clean offline capability.</p>
         <div class="home-actions">
           <button class="primary" id="newGameBtn">♟ New Game</button>
           <button class="secondary" id="continueBtn" style="display:none">▶ Continue</button>
@@ -153,9 +145,9 @@ button{font:inherit;color:inherit;border:0}
       <button class="mode-card" data-mode="ai"><div class="emoji">🤖</div><strong>Vs AI</strong><span>Easy → Grandmaster</span></button>
       <button class="mode-card" data-mode="local"><div class="emoji">♟</div><strong>2 Player</strong><span>Pass & play</span></button>
       <button class="mode-card" id="themesBtn"><div class="emoji">🎨</div><strong>Themes</strong><span>Board & pieces</span></button>
-      <button class="mode-card" id="statsBtn"><div class="emoji">📊</div><strong>Statistics</strong><span>Wins • draws • streak</span></button>
+      <button class="mode-card" id="statsBtn"><div class="emoji">📊</div><strong>Statistics</strong><span>Wins • streak</span></button>
     </div>
-    <div class="install-note" id="installNote">📱 <b>Mobile feel:</b> Open this page in your browser and use <b>Add to Home Screen</b> / <b>Install app</b> to launch it like an app.</div>
+    <div class="install-note" id="installNote">📱 <b>App Installation:</b> Tap your browser menu (<b>⋮</b> or <b>Share</b>) and select <b>"Install App"</b> or <b>"Add to Home Screen"</b> for full-screen experience.</div>
   </section>
 
   <section id="game" class="screen game">
@@ -235,7 +227,6 @@ function loadGame(){
 const boardEl=document.getElementById("board");
 const modalBackdrop=document.getElementById("modalBackdrop");
 const modal=document.getElementById("modal");
-const boardShell=document.getElementById("boardShell");
 const boardTilt=document.getElementById("boardTilt");
 
 function cloneBoard(b){return b.map(r=>r.slice())}
@@ -403,6 +394,7 @@ function renderBoard(){
   }
   updatePlayers();
 }
+
 function onSquareTap(r,c){
   if(state.gameOver||state.aiThinking)return;
   const p=state.board[r][c], col=colorOf(p);
@@ -501,7 +493,7 @@ function endGame(title,reason){
   showResult(title,reason);
 }
 function showResult(title,reason){
-  openModal(`<div class="result"><div class="trophy">${title==="DRAW"?"♜":"♛"}</div><div class="eyebrow">${reason.toUpperCase()}</div><h2>${title}</h2><div class="sub">${state.moveLog.length} half-moves played</div><div class="modal-actions" style="width:100%;margin-top:22px"><button class="primary" id="rematch">↻ Rematch</button><button class="secondary" id="toHome">⌂ Home</button></div></div>`);
+  openModal(`<div class="result"><div class="trophy">${title==="DRAW"?"♜":"♛"}</div><div class="eyebrow">${reason.toUpperCase()}</div><h2>${title}</h2><div class="sub">${state.moveLog.length} half-moves played</div><div class="modal-actions" style="width:100%;margin-top:16px"><button class="primary" id="rematch">↻ Rematch</button><button class="secondary" id="toHome">⌂ Home</button></div></div>`);
   document.getElementById("rematch").onclick=()=>{closeModal();startNewGame(state.mode,state.difficulty,state.timerPreset)}
   document.getElementById("toHome").onclick=()=>{closeModal();showScreen("home")}
 }
@@ -511,16 +503,16 @@ function closeModal(){modalBackdrop.classList.remove("show")}
 modalBackdrop.addEventListener("click",e=>{if(e.target===modalBackdrop)closeModal()})
 
 function chooseMode(){
-  openModal(`<h3>Start a new match</h3><p>Choose the game mode first. You can change the clock and theme after this.</p>
+  openModal(`<h3>Start a new match</h3><p>Choose game mode and settings:</p>
   <div class="option-grid">
     <button class="option ${state.mode==="ai"?"active":""}" data-m="ai"><b>🤖 Vs AI</b><div class="small">You play White</div></button>
-    <button class="option ${state.mode==="local"?"active":""}" data-m="local"><b>♟ 2 Player</b><div class="small">Pass & play on one device</div></button>
+    <button class="option ${state.mode==="local"?"active":""}" data-m="local"><b>♟ 2 Player</b><div class="small">Pass & play</div></button>
   </div>
-  <div style="margin-top:14px"><div class="small">AI difficulty</div><div class="option-grid" style="margin-top:7px" id="diffGrid">
+  <div style="margin-top:10px"><div class="small">AI difficulty</div><div class="option-grid" style="margin-top:5px" id="diffGrid">
     ${["Easy","Medium","Hard","Grandmaster"].map(d=>`<button class="option ${state.difficulty===d?"active":""}" data-d="${d}">${d}</button>`).join("")}
   </div></div>
-  <div style="margin-top:14px"><div class="small">Clock</div><div class="option-grid" style="margin-top:7px" id="timerGrid">
-    ${[["none","No timer"],["5","5 min"],["10","10 min"],["15","15 min"],["30","30 min"]].map(x=>`<button class="option ${state.timerPreset===x[0]?"active":""}" data-t="${x[0]}">${x[1]}</button>`).join("")}
+  <div style="margin-top:10px"><div class="small">Clock</div><div class="option-grid" style="margin-top:5px" id="timerGrid">
+    ${[["none","No timer"],["5","5 min"],["10","10 min"],["15","15 min"]].map(x=>`<button class="option ${state.timerPreset===x[0]?"active":""}" data-t="${x[0]}">${x[1]}</button>`).join("")}
   </div></div>
   <div class="modal-actions"><button class="secondary" id="cancelStart">Cancel</button><button class="primary" id="confirmStart">Start Game</button></div>`);
   modal.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.m;modal.querySelectorAll("[data-m]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
@@ -539,7 +531,7 @@ function startNewGame(mode="ai",difficulty="Medium",timer="none"){
 function showTouchOnboarding(){
   if(!state.firstLaunch)return;
   state.firstLaunch=false;localStorage.setItem("rg_onboarded","1");
-  openModal(`<h3>Touch controls</h3><p><b>Tap a piece</b> to select it, then <b>tap a highlighted square</b> to move. Use <b>⟳ View</b> to rotate the board. On mobile, the controls stay separate from the chess board so movement remains reliable.</p><div class="modal-actions"><button class="primary" id="gotIt">Got it</button></div>`);
+  openModal(`<h3>Touch controls</h3><p><b>Tap a piece</b> to select, then <b>tap target square</b> to move. Use <b>⟳ View</b> to rotate board.</p><div class="modal-actions" style="grid-column: span 2"><button class="primary" id="gotIt" style="width:100%">Got it</button></div>`);
   document.getElementById("gotIt").onclick=closeModal;
 }
 
@@ -575,7 +567,7 @@ function togglePause(){
 }
 function rotateView(){
   state.orientation=(state.orientation+1)%2;
-  boardTilt.style.transform=state.orientation?"rotateX(50deg) rotateZ(180deg)":"rotateX(52deg) rotateZ(0deg)";
+  boardTilt.style.transform=state.orientation?"rotateX(38deg) rotateZ(180deg)":"rotateX(42deg) rotateZ(0deg)";
   renderBoard();
 }
 function openMenu(){
@@ -588,14 +580,11 @@ function openMenu(){
 }
 
 function showThemes(){
-  openModal(`<h3>Game room</h3><p>Keep the board readable and premium. More material packs can be added later without changing the chess engine.</p>
-  <div class="small">Board theme</div>
-  <div class="option-grid" style="margin-top:7px">
+  openModal(`<h3>Game room</h3><p>Select board color theme:</p>
+  <div class="option-grid">
     <button class="option ${state.theme==="classic"?"active":""}" data-th="classic"><b>Classic Wood</b><div class="small">Warm luxury wood</div></button>
     <button class="option ${state.theme==="midnight"?"active":""}" data-th="midnight"><b>Midnight</b><div class="small">Graphite blue</div></button>
   </div>
-  <div class="small" style="margin-top:14px">Piece style</div>
-  <div class="option-grid" style="margin-top:7px"><button class="option active"><b>Classic</b><div class="small">Readable Unicode set</div></button><button class="option"><b>Royal</b><div class="small">Reserved for 3D asset pack</div></button></div>
   <div class="modal-actions"><button class="secondary" id="themeClose">Close</button><button class="primary" id="themeApply">Apply</button></div>`);
   modal.querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{state.theme=b.dataset.th;modal.querySelectorAll("[data-th]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
   document.getElementById("themeClose").onclick=closeModal;
@@ -616,26 +605,25 @@ function applyTheme(){
 
 function showStats(){
   const s=state.stats;
-  openModal(`<h3>Your record</h3><p>Stored locally on this device. No account or cloud database is used.</p>
+  openModal(`<h3>Your record</h3><p>Stored locally on device.</p>
   <div class="stats-grid">
     <div class="stat"><b>${s.games}</b><span>Games</span></div>
     <div class="stat"><b>${s.wins}</b><span>Wins</span></div>
     <div class="stat"><b>${s.losses}</b><span>Losses</span></div>
     <div class="stat"><b>${s.draws}</b><span>Draws</span></div>
-    <div class="stat"><b>${s.streak}</b><span>Current streak</span></div>
-    <div class="stat"><b>${s.best}</b><span>Best streak</span></div>
+    <div class="stat"><b>${s.streak}</b><span>Streak</span></div>
+    <div class="stat"><b>${s.best}</b><span>Best</span></div>
   </div>
-  <div class="modal-actions"><button class="secondary" id="closeStats">Close</button><button class="primary" id="resetStats">Reset Stats</button></div>`);
+  <div class="modal-actions"><button class="secondary" id="closeStats">Close</button><button class="primary" id="resetStats">Reset</button></div>`);
   document.getElementById("closeStats").onclick=closeModal;
   document.getElementById("resetStats").onclick=()=>{state.stats={wins:0,losses:0,draws:0,games:0,streak:0,best:0};saveStats();showStats()}
 }
 function showSettings(){
-  openModal(`<h3>Settings</h3><p>Built for comfortable phone play first.</p>
+  openModal(`<h3>Settings</h3><p>Game configurations:</p>
   <div class="range-row"><span>Sound</span><button class="secondary" id="setSound">${state.sound?"ON":"OFF"}</button></div>
-  <div class="range-row"><span>Volume</span><input type="range" min="0" max="1" step=".05" value="${state.volume}" id="vol"></div>
-  <div class="range-row"><span>Confirm moves</span><button class="secondary" id="confirmMoves">OFF</button></div>
-  <div class="install-note" style="margin-top:14px">On iPhone/iPad: Share → Add to Home Screen. On Android/Chrome: browser menu → Install app / Add to Home screen.</div>
-  <div class="modal-actions"><button class="primary" id="closeSettings">Done</button><button class="secondary" id="clearSave">Clear saved game</button></div>`);
+  <div class="range-row"><span>Volume</span><input type="range" min="0" max="1" step=".05" value="${state.volume}" id="vol" style="width:120px"></div>
+  <div class="install-note" style="margin-top:10px">📱 <b>To install app:</b> Open browser menu (top right <b>⋮</b>) and choose <b>Install app</b> or <b>Add to Home Screen</b>.</div>
+  <div class="modal-actions"><button class="primary" id="closeSettings">Done</button><button class="secondary" id="clearSave">Clear Save</button></div>`);
   document.getElementById("setSound").onclick=()=>{state.sound=!state.sound;showSettings()};
   document.getElementById("vol").oninput=e=>state.volume=Number(e.target.value);
   document.getElementById("closeSettings").onclick=closeModal;
@@ -660,8 +648,6 @@ function aiMove(){
     }
     const choice=bestMoves[Math.floor(Math.random()*bestMoves.length)];
     state.aiThinking=false;document.getElementById("boardHint").textContent="Tap a piece, then tap a destination.";
-    
-    // Check if AI move triggers promotion (defaults to Queen for AI)
     if(typeOf(state.board[choice.from[0]][choice.from[1]])==="p" && (choice.to[0]===0 || choice.to[0]===7)){
       performMove(choice, "q");
     } else {
