@@ -7,7 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
 <title>Royal Gambit — 3D Chess</title>
 <style>
 :root{
@@ -47,12 +49,12 @@ button{font:inherit;color:inherit;border:0}
 .hero h2{font-size:clamp(28px,4.8vw,54px);line-height:1.05;margin:12px 0 14px;letter-spacing:-.04em}
 .hero p{color:#b9b7b0;max-width:570px;font-size:15px;line-height:1.6;margin-bottom:20px}
 .home-actions{display:flex;flex-wrap:wrap;gap:12px}
+.install-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.install-actions .secondary,.install-actions .primary{min-height:46px;font-size:12px;padding:0 16px}.install-badge{display:inline-flex;align-items:center;gap:7px;margin-top:10px;font-size:10px;color:#a9a69e}
 
-.primary,.secondary{min-height:50px;padding:0 24px;border-radius:14px;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;transition:all .2s cubic-bezier(0.3,0,0.4,1);position:relative}
+.primary,.secondary{min-height:50px;text-decoration:none;padding:0 24px;border-radius:14px;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;transition:all .2s cubic-bezier(0.3,0,0.4,1);position:relative}
 .primary{background:linear-gradient(135deg,#f2d693,#b8893f);color:#16120b;box-shadow:0 6px 20px rgba(185,137,63,.35),inset 0 1px 0 rgba(255,255,255,.5);border:1px solid #9a7332}
 .primary:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(185,137,63,.5),inset 0 1px 0 rgba(255,255,255,.7)}
 .primary:active{transform:translateY(1px);box-shadow:0 2px 8px rgba(185,137,63,.3)}
-.home-actions a.secondary{text-decoration:none}
 
 .secondary{background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.15);box-shadow:0 4px 15px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,.1)}
 .secondary:hover{background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));border-color:rgba(255,255,255,.3);transform:translateY(-2px)}
@@ -117,6 +119,20 @@ button{font:inherit;color:inherit;border:0}
 .board-hint{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);padding:5px 10px;background:rgba(9,10,13,.85);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#d7d3ca;font-size:10px;backdrop-filter:blur(8px);white-space:nowrap;z-index:10}
 
 /* Rebalanced 4-button control layout */
+
+.board-stage{display:flex;align-items:center;justify-content:center;gap:18px;width:100%;}
+.prediction-panel{width:92px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 9px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 25px rgba(0,0,0,.28);}
+.prediction-title{font-size:8px;letter-spacing:.16em;color:#d9d4c8;font-weight:900;}
+.prediction-wrap{height:160px;width:18px;display:flex;justify-content:center;}
+.prediction-meter{position:relative;width:16px;height:160px;border-radius:10px;background:linear-gradient(180deg,#303541 0%,#d8d2c5 48%,#383b45 100%);overflow:hidden;border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 0 8px rgba(0,0,0,.35);}
+.prediction-fill{position:absolute;left:0;right:0;bottom:0;height:50%;background:linear-gradient(180deg,#17191f,#0c0e12);transition:height .35s ease;}
+.prediction-center{position:absolute;left:-2px;right:-2px;top:50%;height:1px;background:rgba(255,255,255,.65);z-index:2;}
+.prediction-labels{height:166px;position:absolute;display:flex;flex-direction:column;justify-content:space-between;align-items:center;margin-top:21px;pointer-events:none;}
+.prediction-labels span{font-size:7px;font-weight:900;letter-spacing:.08em;color:#aaa79e;writing-mode:vertical-rl;transform:rotate(180deg);}
+.prediction-text{font-size:9px;font-weight:900;text-align:center;color:#e6dfd2;line-height:1.2;}
+.prediction-score{font-size:8px;color:#88867f;text-align:center;line-height:1.2;}
+.timeout-info{display:flex;align-items:center;gap:5px;color:#96948d;font-size:8px;white-space:nowrap;}
+.timeout-info b{color:#d7ad62;font-size:9px;}
 .game-controls{width:100%;max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .control{min-height:44px;border-radius:12px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:all .15s ease}
 .control:hover{background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));border-color:rgba(215,173,98,.4);transform:translateY(-1px)}
@@ -141,6 +157,17 @@ button{font:inherit;color:inherit;border:0}
   .hero{grid-template-columns:1fr}.hero-copy{text-align:center}.hero-copy p{margin-left:auto;margin-right:auto}.home-actions{justify-content:center}
   .preview-wrap{min-height:240px;order:-1}.mini-board{width:min(65vw,260px)}
   .mode-grid{grid-template-columns:repeat(2,1fr)}
+  .board-stage{flex-direction:column;gap:8px;}
+  .prediction-panel{width:min(90vw,500px);display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;align-items:center;gap:5px 9px;padding:7px 10px;}
+  .prediction-title{grid-column:1;grid-row:1 / span 2;}
+  .prediction-wrap{height:12px;width:auto;grid-column:2;grid-row:1;}
+  .prediction-meter{width:100%;height:12px;border-radius:8px;background:linear-gradient(90deg,#e5dfd2 0%,#b7b2a8 48%,#17191f 100%);}
+  .prediction-fill{left:0;top:0;bottom:auto;height:100%;width:50%;background:linear-gradient(90deg,#17191f,#0c0e12);transition:width .35s ease;}
+  .prediction-center{left:50%;right:auto;top:-2px;bottom:-2px;width:1px;height:auto;}
+  .prediction-labels{position:static;height:auto;grid-column:2;grid-row:2;display:flex;flex-direction:row;justify-content:space-between;margin:0;}
+  .prediction-labels span{writing-mode:initial;transform:none;}
+  .prediction-text{grid-column:3;grid-row:1 / span 2;min-width:60px;}
+  .prediction-score{display:none;}
 }
 </style>
 </head>
@@ -159,13 +186,17 @@ button{font:inherit;color:inherit;border:0}
       <div class="hero-copy">
         <div class="eyebrow">CINEMATIC CHESS EXPERIENCE</div>
         <h2>Play chess like a premium game.</h2>
-        <p>A precision-patched chess engine featuring exact zero-crossing timestamp timers, race-condition protected AI iterative deepening, and correct black-positive evaluation.</p>
+        <p>A premium chess experience with strong Hard & Grandmaster AI, tactical search, engine prediction, 15-second turns, and mobile-first play.</p>
         <div class="home-actions">
           <button class="primary" id="newGameBtn">♟ New Game</button>
           <button class="secondary" id="continueBtn" style="display:none">▶ Continue</button>
-          <button class="secondary" id="installBtn" style="display:none">⬇ Install App</button>
           <a class="secondary" id="mindGamesBtn" href="https://multigameweb.github.io/Game-Zone/" target="_blank" rel="noopener">🧠 Play More Mind Games</a>
         </div>
+        <div class="install-actions">
+          <button class="secondary" id="installBtn">⬇ Install App</button>
+          <button class="secondary" id="homeScreenBtn">⌂ Add to Home Screen</button>
+        </div>
+        <div class="install-badge">📱 Install Royal Gambit for a full-screen app experience.</div>
       </div>
       <div class="preview-wrap">
         <div class="mini-board"><div id="miniSquares" class="mini-squares"></div></div>
@@ -201,7 +232,7 @@ button{font:inherit;color:inherit;border:0}
             <li><strong>Easy:</strong> Quick, beginner-friendly play. Makes simpler choices and occasional random moves.</li>
             <li><strong>Medium:</strong> More consistent tactical decisions and deeper search than Easy.</li>
             <li><strong>Hard:</strong> Stronger tactical search and more careful move selection.</li>
-            <li><strong>Grandmaster:</strong> The strongest available mode in this game, using the deepest search budget. It is intended to be very challenging.</li>
+            <li><strong>Grandmaster:</strong> The strongest available mode in this game, using deeper tactical search, quiescence search, positional evaluation, and anti-repetition move selection.</li>
             <li><strong>2 Player:</strong> No AI difficulty is used. Both sides are human players sharing the same device.</li>
           </ul>
         </div>
@@ -247,7 +278,7 @@ button{font:inherit;color:inherit;border:0}
       </details>
     </div>
 
-    <div class="install-note">📱 <b>Install:</b> Use <b>Install App</b> when available. On iPhone/iPad, use Share → <b>Add to Home Screen</b>.</div>
+    
   </section>
 
   <!-- GAME SCREEN -->
@@ -257,7 +288,7 @@ button{font:inherit;color:inherit;border:0}
         <div class="player-row"><div class="player-name" id="blackName">Black</div><div class="player-side">BLACK</div></div>
         <div class="clock-row">
           <div class="clock" id="blackClock">15s</div>
-          <div class="warn-dots" id="blackWarn">••••</div>
+          <div class="timeout-info"><span>Timeouts</span><b id="blackTimeouts">0 / 4</b></div>
         </div>
       </div>
       <button class="icon-btn" id="gameMenu">☰</button>
@@ -265,18 +296,29 @@ button{font:inherit;color:inherit;border:0}
         <div class="player-row"><div class="player-name" id="whiteName">White</div><div class="player-side">WHITE</div></div>
         <div class="clock-row">
           <div class="clock" id="whiteClock">15s</div>
-          <div class="warn-dots" id="whiteWarn">••••</div>
+          <div class="timeout-info"><span>Timeouts</span><b id="whiteTimeouts">0 / 4</b></div>
         </div>
       </div>
     </div>
 
     <div class="board-area">
-      <div class="board-shell" id="boardShell">
-        <div class="board-tilt" id="boardTilt">
-          <div class="board-base"></div>
-          <div id="board" class="board"></div>
+      <div class="board-stage">
+        <div class="board-shell" id="boardShell">
+          <div class="board-tilt" id="boardTilt">
+            <div class="board-base"></div>
+            <div id="board" class="board"></div>
+          </div>
+          <div class="board-hint" id="boardHint">Tap a piece, then tap destination.</div>
         </div>
-        <div class="board-hint" id="boardHint">Tap a piece, then tap destination.</div>
+        <div class="prediction-panel" aria-label="Engine prediction meter">
+          <div class="prediction-title">PREDICTION</div>
+          <div class="prediction-wrap">
+            <div class="prediction-meter"><div class="prediction-center"></div><div id="predictionFill" class="prediction-fill"></div></div>
+          </div>
+          <div class="prediction-labels"><span>WHITE</span><span>BLACK</span></div>
+          <div id="predictionText" class="prediction-text">Balanced</div>
+          <div id="predictionScore" class="prediction-score">Engine eval 0.0</div>
+        </div>
       </div>
     </div>
 
@@ -403,7 +445,7 @@ function pseudoMoves(b,r,c,meta){
   if(t==="p"){
     const dir=col==="w"?-1:1, start=col==="w"?6:1;
     if(inside(r+dir,c)&&b[r+dir][c]==="."){
-      add(r+dir,c);
+      add(r+dir,c, (r+dir===0||r+dir===7)?{promotion:"q"}:{});
       if(r===start&&b[r+2*dir][c]===".")add(r+2*dir,c,{double:true});
     }
     for(const dc of [-1,1]){
@@ -411,7 +453,7 @@ function pseudoMoves(b,r,c,meta){
       if(!inside(rr,cc))continue;
       const q=b[rr][cc];
       if(q!=="."&&colorOf(q)!==col){
-        add(rr,cc);
+        add(rr,cc, (rr===0||rr===7)?{promotion:"q"}:{});
       }else if(meta&&meta.enPassant&&meta.enPassant[0]===rr&&meta.enPassant[1]===cc){
         add(rr,cc,{enPassant:true,capture:true});
       }
@@ -510,6 +552,26 @@ function renderBoard(){
     boardEl.appendChild(el);
   }
   updatePlayers();
+  updatePredictionMeter();
+}
+
+function updatePredictionMeter(){
+  const fill=document.getElementById("predictionFill");
+  const text=document.getElementById("predictionText");
+  const scoreEl=document.getElementById("predictionScore");
+  if(!fill||!text||!scoreEl||typeof evalPosition!=="function")return;
+  let score=0;
+  try{score=evalPosition(state.board);}catch(e){score=0;}
+  const clamped=Math.max(-900,Math.min(900,score));
+  const pct=50+(Math.tanh(clamped/450)*50);
+  if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
+    fill.style.width=`${pct.toFixed(1)}%`; fill.style.height="100%";
+  }else{
+    fill.style.height=`${pct.toFixed(1)}%`; fill.style.width="100%";
+  }
+  const pawns=Math.abs(score/100);
+  scoreEl.textContent=`Engine eval ${score>=0?"+":"-"}${pawns.toFixed(1)} · ${score>=0?"Black":"White"}`;
+  text.textContent=Math.abs(score)<35?"Balanced":(score>0?"Black edge":"White edge");
 }
 
 function onSquareTap(r,c){
@@ -704,6 +766,15 @@ function showResult(title,reason){
   document.getElementById("toHome").onclick=()=>{closeModal();showScreen("home")}
 }
 
+function showInstallHelp(){
+  openModal(`<h3>Install Royal Gambit</h3>
+  <p><b>Android / Chrome:</b> Tap <b>Install App</b> when the browser offers the install prompt. If no prompt appears, open <b>⋮ Menu → Add to Home screen / Install app</b>.</p>
+  <p><b>iPhone / iPad:</b> Tap <b>Share</b> in Safari → <b>Add to Home Screen</b>.</p>
+  <p class="small">For the browser's native install option to appear, the app must be served over HTTPS and the PWA manifest + service worker files must be present beside this page.</p>
+  <div class="modal-actions"><button class="primary" id="closeInstallHelp">Done</button></div>`);
+  document.getElementById('closeInstallHelp').onclick=closeModal;
+}
+
 function showScreen(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
@@ -762,9 +833,8 @@ function updatePlayers(){
   wc.textContent=state.seconds.w+"s"; bc.textContent=state.seconds.b+"s";
   wc.classList.toggle("low",state.seconds.w<=5); bc.classList.toggle("low",state.seconds.b<=5);
 
-  const renderDots=(col)=> "•".repeat(state.timeouts[col]) + "◦".repeat(Math.max(0, 4 - state.timeouts[col]));
-  document.getElementById("whiteWarn").textContent=renderDots("w");
-  document.getElementById("blackWarn").textContent=renderDots("b");
+  document.getElementById("whiteTimeouts").textContent=`${state.timeouts.w} / 4`;
+  document.getElementById("blackTimeouts").textContent=`${state.timeouts.b} / 4`;
 }
 
 /* 2 & 3. PRECISE EXACT-ZERO TIMESTAMP TIMER ARCHITECTURE */
@@ -775,12 +845,6 @@ function startTimer(){
   state.timerId=setInterval(()=>{
     if(state.gameOver) return;
 
-    // The AI's calculation time is separate from the 15s human turn clock.
-    // This prevents a strong AI search from causing an artificial timeout.
-    if(state.mode==="ai" && state.turn==="b" && state.aiThinking){
-      updatePlayers();
-      return;
-    }
     const elapsed = (performance.now() - state.turnStartTimestamp) / 1000;
     let left = Math.ceil(15 - elapsed);
     if(left < 0) left = 0;
@@ -934,11 +998,36 @@ function showSettings(){
    Hard / Grandmaster: iterative deepening + alpha-beta +
    quiescence + transposition table + positional evaluation.
    ========================================================== */
+function simplePositionKey(b,turn){
+  return b.map(r=>r.join('')).join('/')+'|'+turn;
+}
+function countSeenPosition(b,turn){
+  let count=0;
+  if(simplePositionKey(b,turn)===simplePositionKey(state.board,state.turn)) count++;
+  for(let i=0;i<state.history.length;i++){
+    const h=state.history[i];
+    if(simplePositionKey(h.board,h.turn)===simplePositionKey(b,turn)) count++;
+  }
+  return count;
+}
+function isRepeatingAIMove(m){
+  const nb=applyMove(state.board,m);
+  const nextTurn='w';
+  return countSeenPosition(nb,nextTurn)>=1;
+}
+function repetitionRiskScore(m){
+  const nb=applyMove(state.board,m);
+  const nextTurn='w';
+  const seen=countSeenPosition(nb,nextTurn);
+  if(seen>=2) return -120000;
+  if(seen===1) return -45000;
+  return 0;
+}
 const AI_CFG={
   Easy:{time:350,depth:1,q:1},
   Medium:{time:1400,depth:3,q:2},
-  Hard:{time:9500,depth:5,q:3},
-  Grandmaster:{time:13500,depth:7,q:4}
+  Hard:{time:7000,depth:5,q:3},
+  Grandmaster:{time:10000,depth:7,q:4}
 };
 const TT_MAX=60000;
 const aiTT=new Map();
@@ -988,6 +1077,7 @@ function moveScore(m,b,ply,ttMove){
   const ks=aiKiller[ply]||[];
   if(ks.includes(mk))s+=30000;
   s+=(aiHistoryHeur[mk]||0);
+  if(colorOf(b[m.from[0]][m.from[1]])==='b') s+=repetitionRiskScore(m);
   return s;
 }
 function orderedMoves(b,moves,ply,ttMove){
@@ -1030,6 +1120,7 @@ function evalPosition(b){
     }
     return x;
   };
+  score+=(colorOf('P')==='w'? -pawnStructure(whitePawns,'w'):0);
   score+=pawnStructure(blackPawns,'b')-pawnStructure(whitePawns,'w');
   if(blackB>=2)score+=28;
   if(whiteB>=2)score-=28;
@@ -1139,7 +1230,9 @@ function getBestMoveIterative(moves,targetDepth,startTime,timeLimit,turnId){
   for(let depth=1;depth<=targetDepth;depth++){
     if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId)break;
     let bestForDepth=bestMove,bestScore=-Infinity,completed=true;
-    const rootMoves=orderedMoves(state.board,moves,0,aiTT.get(boardKey(state.board,'b'))?.best||null);
+    let rootMoves=orderedMoves(state.board,moves,0,aiTT.get(boardKey(state.board,'b'))?.best||null);
+    const nonRepeating=rootMoves.filter(m=>!isRepeatingAIMove(m));
+    if(nonRepeating.length) rootMoves=nonRepeating;
     for(const m of rootMoves){
       if(performance.now()-startTime>=timeLimit||state.aiTurnId!==turnId){completed=false;break;}
       const score=minimaxAlphaBeta(applyMove(state.board,m),depth-1,-Infinity,Infinity,'w',startTime,timeLimit,turnId,AI_CFG[state.difficulty]?.q||3,1);
@@ -1154,7 +1247,7 @@ function aiMove(){
   if(state.gameOver||state.mode!=='ai'||state.turn!=='b')return;
   const currentAiTurnId=++state.aiTurnId;
   state.aiThinking=true;
-  document.getElementById('boardHint').textContent=(state.difficulty||'AI')+' is calculating…';
+  document.getElementById('boardHint').textContent=`${state.difficulty} AI is calculating…`;
   const moves=legalMovesFor('b');
   if(!moves.length){state.aiThinking=false;return;}
   const cfg=AI_CFG[state.difficulty]||AI_CFG.Medium;
@@ -1205,36 +1298,7 @@ function buildMini(){
   START.join("").split("").forEach(p=>{const s=document.createElement("div");s.className="ms";if(p!=="."){s.textContent=PIECES[colorOf(p)][typeOf(p)];s.classList.add(colorOf(p)==="w"?"white":"black")}m.appendChild(s)})
 }
 
-let deferredInstallPrompt=null;
-function setupInstall(){
-  const btn=document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt',e=>{
-    e.preventDefault();
-    deferredInstallPrompt=e;
-    btn.style.display='inline-flex';
-  });
-  window.addEventListener('appinstalled',()=>{
-    deferredInstallPrompt=null;
-    btn.style.display='none';
-    btn.textContent='✓ Installed';
-  });
-  btn.onclick=async()=>{
-    if(!deferredInstallPrompt){
-      openModal('<h3>Install Royal Gambit</h3><p>On iPhone/iPad: tap Share and choose <b>Add to Home Screen</b>.<br><br>On Android/Chrome: use the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p><div class="modal-actions"><button class="primary" id="installClose">Done</button></div>');
-      document.getElementById('installClose').onclick=closeModal;
-      return;
-    }
-    const promptEvent=deferredInstallPrompt;
-    deferredInstallPrompt=null;
-    await promptEvent.prompt();
-    const choice=await promptEvent.userChoice;
-    if(choice.outcome!=='accepted') btn.style.display='inline-flex';
-  };
-}
-
 function init(){
-  setupInstall();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   buildMini();
   if(hasSave()){document.getElementById("continueBtn").style.display="inline-block"}
   document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;chooseMode()});
@@ -1242,13 +1306,40 @@ function init(){
   document.getElementById("continueBtn").onclick=()=>{if(loadGame()){showScreen("game");applyThemeSettings();renderBoard();startTimer();}};
   document.getElementById("homeSettings").onclick=showSettings;
   document.getElementById("themesBtn").onclick=showThemes;
+  document.getElementById("installBtn").onclick=()=>{
+    if(state.installPromptEvent){
+      const ev=state.installPromptEvent;
+      state.installPromptEvent=null;
+      ev.prompt();
+      ev.userChoice.finally(()=>{updateInstallButton();});
+    }else{showInstallHelp();}
+  };
+  document.getElementById("homeScreenBtn").onclick=showInstallHelp;
   document.getElementById("statsBtn").onclick=showStats;
   document.getElementById("gameMenu").onclick=openMenu;
   document.getElementById("rotateBtn").onclick=()=>{rotateView();document.getElementById("rotateBtn").textContent="⟳ Flip Board"};
   document.getElementById("soundBtn").onclick=()=>{state.sound=!state.sound;document.getElementById("soundBtn").textContent=state.sound?"🔊 Sound":"🔇 Sound"};
 }
 
+function updateInstallButton(){
+  const btn=document.getElementById('installBtn');
+  if(!btn)return;
+  const standalone=window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  if(standalone || window.navigator.standalone){
+    btn.textContent='✓ App Installed';
+    btn.disabled=true;
+    btn.style.opacity='.65';
+  }else{
+    btn.textContent=state.installPromptEvent?'⬇ Install App':'⬇ Install App';
+    btn.disabled=false;
+  }
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPromptEvent=e;updateInstallButton();});
+window.addEventListener('appinstalled',()=>{state.installPromptEvent=null;updateInstallButton();});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+updateInstallButton();
 init();
+
 </script>
 </body>
 </html>
